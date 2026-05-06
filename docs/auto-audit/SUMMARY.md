@@ -8,6 +8,7 @@
 |---|---|---|---|---|---|
 | 1 | 2026-05-07 00:30 | ✅ success | `7f82baf` | streamlit_app.py | 等效Δ 顯示 + 情境表 tooltip + 重複風險警示 |
 | 2 | 2026-05-07 01:45 | ⚠️ partial | `cd19da9` | streamlit_app.py | 候選表 default sort by 成交量↓；Delta-aware OTM 模型 reverted（test fixture Delta 不真實，需先 refactor）|
+| 3 | 2026-05-07 03:05 | ✅ success | `8c17e63` | streamlit_app.py | Header 加標的現價/目標/預期漲跌幅 metric；3 卡片重複 caption 收斂為 1 條；底部 Mock 隨機走勢圖 gate Mock-only |
 
 ## Round details
 
@@ -28,3 +29,12 @@
 - Item B (default sort 成交量↓): ✅ 成功。候選表最高量在頂端，使用者仍可點 header 自排
 - pytest 32/32, Streamlit HTTP 200
 - Files: `docs/auto-audit/round-2/{review.md, implementation.md, screenshots*/}`
+
+### Round 3 — 2026-05-07 03:05
+- Review proposed 3 small items, picked 全部 3 個（risk 都低）
+- Item 1: Top-3 卡片內重複 3 次的「三檔風險情境報酬相同」caption → 改成單一 `st.info` 顯示在卡片區上方
+- Item 2: 結果頁頂部加 3-column metric（反推標的現價、目標價、預期漲跌幅%），免捲動就看到情境關鍵資訊
+- Item 3: 底部合成走勢圖（spot_path = 1100 + ...）gate 在 Mock 來源；yuanta/TWSE/CSV 不再顯示
+- Skipped (留下輪): Delta-aware OTM 仍待 fixture refactor；put 方向的 risk_drops_pct 標籤誤導；yuanta 0 結果 raise → 友善 empty state
+- pytest 32/32, Streamlit HTTP 200
+- Files: `docs/auto-audit/round-3/{review.md, implementation.md, screenshots*/}`
