@@ -1,9 +1,18 @@
+# Runtime deps for Streamlit Cloud / 任何部署環境
+# (dev deps 在 pyproject.toml [project.optional-dependencies] 的 dev)
+
+# Core HTTP + parsing
 requests>=2.31
 beautifulsoup4>=4.12
 lxml>=4.9
+
+# Data
 pandas>=2.0
 numpy>=1.24
-yfinance>=0.2.40
+
+# UI
 streamlit>=1.30
 plotly>=5.18
-pytest>=7.4
+
+# 安裝本地套件 (twse_warrant)
+-e .
