@@ -28,6 +28,12 @@ from twse_warrant.models import (
 )
 
 
+PROFILE_LABELS_ZH: dict[Profile, str] = {
+    "stable": "穩健型",
+    "aggressive": "進攻型",
+}
+
+
 def _abs(x: Optional[float]) -> Optional[float]:
     return abs(x) if x is not None else None
 
@@ -257,7 +263,7 @@ def analyze_warrants(
             top_vol = sorted(oriented, key=lambda w: (w.volume or 0), reverse=True)[:3]
             result.degraded = True
             result.notes.append(
-                f"[{profile}] 無權證符合過濾條件，改回傳成交量 Top 3"
+                f"[{PROFILE_LABELS_ZH.get(profile, profile)}] 無權證符合過濾條件，改回傳成交量 Top 3"
             )
             scored_fallback = score_warrants(top_vol, profile, lite_mode=is_lite)
             result.recommendations[profile] = scored_fallback
@@ -268,7 +274,7 @@ def analyze_warrants(
         scored = score_warrants(passed, profile, lite_mode=is_lite)
         if len(scored) < 5:
             result.notes.append(
-                f"[{profile}] 標的權證稀少，僅 {len(scored)} 檔通過過濾"
+                f"[{PROFILE_LABELS_ZH.get(profile, profile)}] 標的權證稀少，僅 {len(scored)} 檔通過過濾"
             )
             result.recommendations[profile] = scored
         else:
@@ -279,7 +285,7 @@ def analyze_warrants(
 
         if excluded_greeks > 0:
             result.notes.append(
-                f"[{profile}] {excluded_greeks} 檔因缺 Greeks/IV 被排除"
+                f"[{PROFILE_LABELS_ZH.get(profile, profile)}] {excluded_greeks} 檔因缺 Greeks/IV 被排除"
             )
 
     result.candidates = list(candidates_union.values())

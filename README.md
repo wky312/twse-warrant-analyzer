@@ -22,7 +22,17 @@ pip install -e .
 streamlit run src/streamlit_app.py
 ```
 
-輸入標的 → 選方向 → 選風格 → 看推薦 + 候選表 + IV-Delta 散點圖。
+輸入標的 → 選方向（認購/認售）→ 選資料來源 → （可選）啟用情境模擬 + 目標價 + 目標日期 → 看候選清單（依成交量排序）+ IV × |等效Δ| 散點圖 +（情境模式）達標報酬表 + Top-3 卡片
+
+#### 情境模擬（建議搭配 Yuanta）
+
+於側欄勾選「🎯 啟用情境模擬」，輸入目標標的價與目標日期（或天數）後重新分析，將額外得到：
+- 反推標的現價 / 目標價 / 預期漲跌幅 metric 列
+- 達標時的權證價、報酬率、損益兩平、平盤 / 跌 5% / 跌 10% 風險情境
+- 達標報酬率 Top-3 卡片
+- 方向衝突警示：若認購搭配下跌目標、或認售搭配上漲目標，會提示換方向
+
+計算邏輯：`權證達標價 = 目標日內含值 + 現有時間價值 × √(剩餘天數 / 現在天期)`
 
 ### Python API
 
@@ -62,6 +72,7 @@ result = analyze(
 
 CSV 必需欄位：`權證代碼`。其他欄位（成交價、IV、Delta…）有對應的話自動讀取，缺則為 `None`。
 中英欄名都支援；參考 `src/twse_warrant/fetchers/csv_fetcher.py` 的 `COLUMN_ALIASES`。
+- 表頭顯示「等效Δ」（教科書 0~1 Delta），由原始 per-unit Delta ÷ 行使比例算得，方便跨權證比較跟漲能力。
 
 ## 架構
 
@@ -104,6 +115,8 @@ fetcher (mock / csv / yahoo* / yuanta*) → orchestrator → list[Warrant]
 | 流通在外比例 | 0.06 | 0.03 |
 | 成交筆數 | 0.04 | 0.07 |
 
+> Streamlit UI 主畫面顯示通過硬過濾的「候選清單」聯集 + 散點圖 +（情境模式）達標報酬表，兩個 profile 的權重表只在過濾與評分階段使用，不再單獨顯示推薦表。
+
 詳細 filter 閾值與正規化細節請見 plan: `/Users/KunYang/.claude/plans/image-1-image-2-noble-finch.md`
 
 ## 資料來源狀態
@@ -130,7 +143,7 @@ fetcher (mock / csv / yahoo* / yuanta*) → orchestrator → list[Warrant]
 pytest tests/
 ```
 
-20 個單元測試覆蓋 filter、normalize、rank、CSV 解析。
+32 個單元測試覆蓋 filter、normalize、rank、CSV 解析。
 
 ## 部署選項
 
