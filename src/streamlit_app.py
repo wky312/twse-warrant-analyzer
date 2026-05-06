@@ -359,6 +359,8 @@ SCENARIO_COLUMN_CONFIG = {
 st.subheader(f"🗂️ 候選清單（通過硬過濾，{len(result.candidates)} 檔）")
 if result.candidates:
     df = pd.DataFrame([warrant_to_row(w) for w in result.candidates])
+    if "成交量" in df.columns:
+        df = df.sort_values("成交量", ascending=False, na_position="last").reset_index(drop=True)
     st.dataframe(
         df, use_container_width=True, hide_index=True,
         column_config=PINNED_COLUMNS,
