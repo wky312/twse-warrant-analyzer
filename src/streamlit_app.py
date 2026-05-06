@@ -148,7 +148,7 @@ def warrant_to_row(w: Warrant) -> dict:
         "買賣價差比%": w.bid_ask_spread_pct,
         "實質槓桿": w.leverage,
         "成交價隱波%": w.iv_mid,
-        "Delta": w.delta,
+        "等效Δ": round(w.equivalent_delta, 3) if w.equivalent_delta is not None else None,
         "流通在外比例%": w.outstanding_pct,
     }
 
@@ -301,6 +301,59 @@ PINNED_COLUMNS = {
     "權證名稱": st.column_config.TextColumn("權證名稱", pinned=True),
 }
 
+# --- 情境表 tooltip 設定（擴充自 PINNED_COLUMNS） ---
+SCENARIO_COLUMN_CONFIG = {
+    **PINNED_COLUMNS,
+    "等效Δ": st.column_config.NumberColumn(
+        "等效Δ",
+        help="教科書 0~1 Delta（已除以行使比例）；認購正、認售負",
+    ),
+    "IV%": st.column_config.NumberColumn(
+        "IV%",
+        help="隱含波動度（買價/賣價隱波取中位）；越高代表權證越貴",
+    ),
+    "槓桿": st.column_config.NumberColumn(
+        "槓桿",
+        help="實質槓桿（券商計算的 effective gearing）",
+    ),
+    "履約價": st.column_config.NumberColumn(
+        "履約價",
+        help="權證的履約價",
+    ),
+    "價內外%": st.column_config.NumberColumn(
+        "價內外%",
+        help="目前價內(+) 或價外(-) 的百分比",
+    ),
+    "天期": st.column_config.NumberColumn(
+        "天期",
+        help="權證剩餘日曆天數",
+    ),
+    "損益兩平": st.column_config.NumberColumn(
+        "損益兩平",
+        help="標的需漲(call)/跌(put)到此價才回本",
+    ),
+    "達標權證價": st.column_config.NumberColumn(
+        "達標權證價",
+        help="若達目標日標的到目標價，預期權證的價格",
+    ),
+    "達標報酬%": st.column_config.NumberColumn(
+        "達標報酬%",
+        help="達標時相對現價的報酬",
+    ),
+    "平盤報酬%": st.column_config.NumberColumn(
+        "平盤報酬%",
+        help="若標的不動到目標日，預期權證價變化",
+    ),
+    "跌5%報酬%": st.column_config.NumberColumn(
+        "跌5%報酬%",
+        help="若標的下跌 5% 到目標日的報酬",
+    ),
+    "跌10%報酬%": st.column_config.NumberColumn(
+        "跌10%報酬%",
+        help="若標的下跌 10% 到目標日的報酬",
+    ),
+}
+
 
 # --- 候選清單 ---
 st.subheader(f"🗂️ 候選清單（通過硬過濾，{len(result.candidates)} 檔）")
@@ -333,20 +386,20 @@ if result.candidates:
 
 # --- 視覺化 ---
 if len(result.candidates) >= 3:
-    st.subheader("📊 候選分佈：IV × |Delta|")
+    st.subheader("📊 候選分佈：IV × |等效Δ|")
     df = pd.DataFrame([{
         "symbol": w.symbol,
         "name": w.name,
         "IV": w.iv_mid,
-        "abs_Delta": abs(w.delta) if w.delta else 0,
+        "abs_Delta": abs(w.equivalent_delta) if w.equivalent_delta is not None else 0,
         "成交量": w.volume or 0,
         "槓桿": w.leverage or 0,
     } for w in result.candidates])
     fig = px.scatter(
         df, x="IV", y="abs_Delta", size="成交量", color="槓桿",
         hover_name="name", hover_data=["symbol"],
-        labels={"IV": "隱含波動度 %", "abs_Delta": "|Delta|"},
-        title="氣泡大小=成交量，顏色=槓桿",
+        labels={"IV": "隱含波動度 %", "abs_Delta": "|等效Δ| (0~1)"},
+        title="氣泡大小=成交量，顏色=槓桿（等效Δ = 教科書 0~1 Delta）",
         color_continuous_scale="Viridis",
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -423,7 +476,7 @@ if scenario_enabled and result.candidates:
             scen_df = pd.DataFrame(scen_rows)
             st.dataframe(
                 scen_df, use_container_width=True, hide_index=True,
-                column_config=PINNED_COLUMNS,
+                column_config=SCENARIO_COLUMN_CONFIG,
             )
 
             st.markdown("##### 🥇 達標報酬率前 3 強")
@@ -438,10 +491,18 @@ if scenario_enabled and result.candidates:
                     st.write(f"履約 **{w.strike:.0f}** | 天期 **{w.days_to_expiry}** 天")
                     st.write(f"現價 {w.last_price} → 預期 **{r.expected_warrant_price:.2f}**")
                     st.write(f"損益兩平 **{r.breakeven:.0f}**　(目標距 BE: {scenario_target - r.breakeven:+.0f})")
+                risk_flat = round(r.risk_returns.get(0.0, 0) or 0, 1)
+                risk_5 = round(r.risk_returns.get(-5.0, 0) or 0, 1)
+                risk_10 = round(r.risk_returns.get(-10.0, 0) or 0, 1)
                 with cols[2]:
-                    st.write(f"⚠️ 平盤不動：**{r.risk_returns.get(0.0, 0):+.1f}%**")
-                    st.write(f"⚠️ 跌 5%：**{r.risk_returns.get(-5.0, 0):+.1f}%**")
-                    st.write(f"⚠️ 跌 10%：**{r.risk_returns.get(-10.0, 0):+.1f}%**")
+                    st.write(f"⚠️ 平盤不動：**{risk_flat:+.1f}%**")
+                    st.write(f"⚠️ 跌 5%：**{risk_5:+.1f}%**")
+                    st.write(f"⚠️ 跌 10%：**{risk_10:+.1f}%**")
+                if risk_flat == risk_5 == risk_10:
+                    st.caption(
+                        "⚠️ 三檔風險情境報酬相同：標的在所有下跌情境皆深度價外，"
+                        "模型目前只反映時間價值衰減（Delta-aware OTM 模型留待後續輪次補強）"
+                    )
                 if r.notes:
                     for n in r.notes:
                         st.caption(f"・{n}")
