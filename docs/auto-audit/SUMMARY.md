@@ -9,6 +9,7 @@
 | 1 | 2026-05-07 00:30 | ✅ success | `7f82baf` | streamlit_app.py | 等效Δ 顯示 + 情境表 tooltip + 重複風險警示 |
 | 2 | 2026-05-07 01:45 | ⚠️ partial | `cd19da9` | streamlit_app.py | 候選表 default sort by 成交量↓；Delta-aware OTM 模型 reverted（test fixture Delta 不真實，需先 refactor）|
 | 3 | 2026-05-07 03:05 | ✅ success | `8c17e63` | streamlit_app.py | Header 加標的現價/目標/預期漲跌幅 metric；3 卡片重複 caption 收斂為 1 條；底部 Mock 隨機走勢圖 gate Mock-only |
+| 4 | 2026-05-07 04:25 | ✅ success | `0464e7a` | streamlit_app.py | 進階閾值 expander 中文化；call/put 方向 vs target 衝突警示；sidebar 加 2 條 divider |
 
 ## Round details
 
@@ -38,3 +39,12 @@
 - Skipped (留下輪): Delta-aware OTM 仍待 fixture refactor；put 方向的 risk_drops_pct 標籤誤導；yuanta 0 結果 raise → 友善 empty state
 - pytest 32/32, Streamlit HTTP 200
 - Files: `docs/auto-audit/round-3/{review.md, implementation.md, screenshots*/}`
+
+### Round 4 — 2026-05-07 04:25
+- Review proposed 3 小範圍低風險的改進，全做
+- Item 1: 進階：硬過濾閾值 expander 把 `stable`/`aggressive` 英文 slug 換成「穩健型」/「進攻型」中文（widget keys 保留英文以維持 state identity）
+- Item 2: 情境模擬 metric 後加方向衝突警示——「call + 目標 < 現價」或「put + 目標 > 現價」時提示使用者考慮換方向
+- Item 3: sidebar 加兩條 `st.divider()` 把版面分為標的/情境/進階/開始分析 四組
+- Skipped (留下輪): Delta-aware OTM（仍待 fixture refactor）；put-side risk_drops_pct 語義；yuanta empty result 友善 empty state；README 補上等效Δ/情境模擬說明
+- pytest 32/32, Streamlit HTTP 200
+- Files: `docs/auto-audit/round-4/{review.md, implementation.md, screenshots*/}`
