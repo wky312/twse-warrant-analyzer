@@ -31,6 +31,10 @@ direction = "call" if direction_label.startswith("認購") else "put"
 
 # 後端仍跑兩個 profile（保留邏輯，但 UI 不顯示推薦表）
 profiles: tuple[Profile, ...] = ("stable", "aggressive")
+PROFILE_LABELS_ZH: dict[Profile, str] = {
+    "stable": "穩健型",
+    "aggressive": "進攻型",
+}
 
 source = st.sidebar.selectbox(
     "資料來源",
@@ -61,7 +65,7 @@ elif source.startswith("TWSE"):
 top_n = st.sidebar.slider("Top N 推薦", 3, 10, 5)
 
 # --- 情境模擬 ---
-st.sidebar.markdown("---")
+st.sidebar.divider()
 scenario_enabled = st.sidebar.checkbox("🎯 啟用情境模擬", value=False,
     help="給定目標標的價 + 目標日期，找出達標時報酬率最高、且風險可控的權證")
 scenario_target = None
@@ -105,21 +109,22 @@ if scenario_enabled:
         scenario_max_spread = st.slider("最大買賣價差比 %", 0.5, 10.0, 2.5)
 
 # 進階閾值
+st.sidebar.divider()
 with st.sidebar.expander("進階：硬過濾閾值（覆寫預設）"):
     use_overrides = st.checkbox("啟用自訂閾值")
     custom = {}
     if use_overrides:
         for p in profiles:
-            st.markdown(f"**{p}**")
+            st.markdown(f"**{PROFILE_LABELS_ZH[p]}**")
             from twse_warrant.analyzers.filters import (
                 FilterThresholds,
                 PROFILE_FILTERS,
             )
             base = PROFILE_FILTERS[p]
-            min_days = st.slider(f"[{p}] 剩餘天數 ≥", 1, 180, base.min_days_to_expiry, key=f"d_{p}")
-            min_vol = st.slider(f"[{p}] 成交量 ≥", 0, 1000, base.min_volume, key=f"v_{p}")
-            max_spr = st.slider(f"[{p}] 買賣價差比 ≤", 0.5, 10.0, base.max_bid_ask_spread_pct, key=f"s_{p}")
-            max_iv = st.slider(f"[{p}] IV ≤", 30.0, 200.0, base.max_iv, key=f"i_{p}")
+            min_days = st.slider(f"[{PROFILE_LABELS_ZH[p]}] 剩餘天數 ≥", 1, 180, base.min_days_to_expiry, key=f"d_{p}")
+            min_vol = st.slider(f"[{PROFILE_LABELS_ZH[p]}] 成交量 ≥", 0, 1000, base.min_volume, key=f"v_{p}")
+            max_spr = st.slider(f"[{PROFILE_LABELS_ZH[p]}] 買賣價差比 ≤", 0.5, 10.0, base.max_bid_ask_spread_pct, key=f"s_{p}")
+            max_iv = st.slider(f"[{PROFILE_LABELS_ZH[p]}] IV ≤", 30.0, 200.0, base.max_iv, key=f"i_{p}")
             custom[p] = FilterThresholds(
                 min_days_to_expiry=min_days,
                 min_volume=min_vol,
@@ -313,6 +318,16 @@ if scenario_enabled and spot_now is not None and scenario_target is not None:
     mc2.metric(f"目標價 ({scenario_days} 天後)", f"{scenario_target:.0f}")
     pct = (float(scenario_target) / spot_now - 1) * 100.0
     mc3.metric("預期漲跌幅", f"{pct:+.1f}%")
+    if direction == "call" and pct < 0:
+        st.warning(
+            f"⚠️ 目標價 {scenario_target:.0f} 低於反推現價 {spot_now:.1f}（{pct:+.1f}%）。"
+            f"認購權證在標的下跌時通常虧損 — 您是否想改選「認售 (put)」？"
+        )
+    elif direction == "put" and pct > 0:
+        st.warning(
+            f"⚠️ 目標價 {scenario_target:.0f} 高於反推現價 {spot_now:.1f}（{pct:+.1f}%）。"
+            f"認售權證在標的上漲時通常虧損 — 您是否想改選「認購 (call)」？"
+        )
 
 # --- 凍結欄位設定（權證代碼/名稱固定在最左） ---
 PINNED_COLUMNS = {
