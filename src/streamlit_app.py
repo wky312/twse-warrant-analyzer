@@ -1,6 +1,7 @@
 """Streamlit MVP UI for 台股權證分析."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -295,6 +296,24 @@ st.success(f"資料來源：{result.fetch_source}　|　原始候選：{result.r
 for note in result.notes:
     st.info(note)
 
+# --- 反推現價（任何模式都需要，供情境模擬與頂部 metric 使用）---
+spot_now: float | None = None
+for w in result.candidates:
+    if w.strike and w.moneyness_pct is not None and w.exercise_ratio:
+        if w.direction == "call":
+            spot_now = w.strike * (1 + w.moneyness_pct / 100.0)
+        else:
+            spot_now = w.strike * (1 - w.moneyness_pct / 100.0)
+        break
+
+# --- 頂部 metric 列：反推現價 / 目標價 / 預期漲跌幅（僅情境模式）---
+if scenario_enabled and spot_now is not None and scenario_target is not None:
+    mc1, mc2, mc3 = st.columns(3)
+    mc1.metric("反推標的現價", f"{spot_now:.1f}")
+    mc2.metric(f"目標價 ({scenario_days} 天後)", f"{scenario_target:.0f}")
+    pct = (float(scenario_target) / spot_now - 1) * 100.0
+    mc3.metric("預期漲跌幅", f"{pct:+.1f}%")
+
 # --- 凍結欄位設定（權證代碼/名稱固定在最左） ---
 PINNED_COLUMNS = {
     "權證代碼": st.column_config.TextColumn("權證代碼", pinned=True),
@@ -368,16 +387,6 @@ if result.candidates:
 else:
     st.warning("無候選權證")
 
-# --- 反推現價供情境模擬使用 ---
-spot_now: float | None = None
-for w in result.candidates:
-    if w.strike and w.moneyness_pct is not None and w.exercise_ratio:
-        if w.direction == "call":
-            spot_now = w.strike * (1 + w.moneyness_pct / 100.0)
-        else:
-            spot_now = w.strike * (1 - w.moneyness_pct / 100.0)
-        break
-
 # --- 互動：點選任一檔看基本資料 ---
 if result.candidates:
     st.subheader("🔎 個別權證基本資料")
@@ -417,8 +426,6 @@ if scenario_enabled and result.candidates:
     if spot_now is None:
         st.warning("無法反推標的現價（缺履約價/價內外）。請改用 Yuanta 來源。")
     else:
-        st.caption(f"反推標的現價：{spot_now:.1f}　|　預期漲跌幅：{(scenario_target/spot_now-1)*100:+.1f}%")
-
         scen_inputs = ScenarioInputs(
             target_price=float(scenario_target),
             days_to_target=int(scenario_days),
@@ -482,7 +489,19 @@ if scenario_enabled and result.candidates:
             )
 
             st.markdown("##### 🥇 達標報酬率前 3 強")
-            for i, r in enumerate(scen_results[:3], 1):
+            top3 = scen_results[:3]
+            top3_all_identical = len(top3) == 3 and all(
+                round(r.risk_returns.get(0.0, 0) or 0, 1)
+                == round(r.risk_returns.get(-5.0, 0) or 0, 1)
+                == round(r.risk_returns.get(-10.0, 0) or 0, 1)
+                for r in top3
+            )
+            if top3_all_identical:
+                st.info(
+                    "⚠️ Top 3 三檔在所有風險情境下報酬相同：標的在所有下跌情境皆深度價外，"
+                    "模型目前只反映時間價值衰減（Delta-aware OTM 模型留待後續輪次補強）"
+                )
+            for i, r in enumerate(top3, 1):
                 w = r.warrant
                 cols = st.columns([1, 2, 2])
                 with cols[0]:
@@ -500,11 +519,6 @@ if scenario_enabled and result.candidates:
                     st.write(f"⚠️ 平盤不動：**{risk_flat:+.1f}%**")
                     st.write(f"⚠️ 跌 5%：**{risk_5:+.1f}%**")
                     st.write(f"⚠️ 跌 10%：**{risk_10:+.1f}%**")
-                if risk_flat == risk_5 == risk_10:
-                    st.caption(
-                        "⚠️ 三檔風險情境報酬相同：標的在所有下跌情境皆深度價外，"
-                        "模型目前只反映時間價值衰減（Delta-aware OTM 模型留待後續輪次補強）"
-                    )
                 if r.notes:
                     for n in r.notes:
                         st.caption(f"・{n}")
@@ -546,26 +560,26 @@ expected_W = intrinsic(目標價) + 現有時間價值 × √(剩餘天數 / 現
 **篩選邏輯**：達標時需有正報酬、成交量 ≥ 設定值、買賣價差比 ≤ 設定值。
 """)
 
-# --- 走勢圖（Mock）---
-top_for_chart: list[ScoredWarrant] = []
-for p in profiles:
-    top_for_chart.extend(result.recommendations.get(p, [])[:1])
+# --- 走勢圖（僅 Mock 模式：合成隨機走勢，避免在真實資料下誤導）---
+if source == "合成樣本 (Mock)":
+    top_for_chart: list[ScoredWarrant] = []
+    for p in profiles:
+        top_for_chart.extend(result.recommendations.get(p, [])[:1])
 
-if top_for_chart:
-    st.subheader("📈 標的股價 vs Top 推薦權證價（示意）")
-    st.caption("⚠️ Mock 模式為合成走勢；接上實際 fetcher 後可換實際歷史 K 線")
-    import numpy as np
-    days = 30
-    rng = np.random.default_rng(42)
-    spot_path = 1100 + np.cumsum(rng.normal(0, 8, days))
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(y=spot_path, name=f"{symbol} 標的", yaxis="y1"))
-    for s in top_for_chart:
-        warrant_path = (s.warrant.last_price or 2.0) * (1 + np.cumsum(rng.normal(0, 0.04, days)))
-        fig.add_trace(go.Scatter(y=warrant_path, name=s.warrant.name, yaxis="y2"))
-    fig.update_layout(
-        yaxis=dict(title="標的股價"),
-        yaxis2=dict(title="權證價", overlaying="y", side="right"),
-        height=400,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    if top_for_chart:
+        st.subheader("📈 標的股價 vs Top 推薦權證價（示意）")
+        st.caption("⚠️ Mock 模式為合成走勢；接上實際 fetcher 後可換實際歷史 K 線")
+        days = 30
+        rng = np.random.default_rng(42)
+        spot_path = 1100 + np.cumsum(rng.normal(0, 8, days))
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=spot_path, name=f"{symbol} 標的", yaxis="y1"))
+        for s in top_for_chart:
+            warrant_path = (s.warrant.last_price or 2.0) * (1 + np.cumsum(rng.normal(0, 0.04, days)))
+            fig.add_trace(go.Scatter(y=warrant_path, name=s.warrant.name, yaxis="y2"))
+        fig.update_layout(
+            yaxis=dict(title="標的股價"),
+            yaxis2=dict(title="權證價", overlaying="y", side="right"),
+            height=400,
+        )
+        st.plotly_chart(fig, use_container_width=True)
