@@ -400,6 +400,215 @@ hr { margin: 16px 0 !important; }
   padding: 8px 12px !important;
   font-size: 12.5px !important;
 }
+
+/* ====== Input card layout（取自 React 設計） ====== */
+.input-card-shell {
+  background: var(--surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 14px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  margin-bottom: 16px;
+}
+.input-card-shell + [data-testid="stHorizontalBlock"] {
+  margin-top: -10px !important;
+}
+.input-meta-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-1);
+}
+.input-meta-strip .meta-left { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.input-meta-strip .meta-left .sep { color: var(--line-3); }
+.input-meta-strip .meta-left .up-color { color: var(--up); font-weight: 500; }
+.input-meta-strip .meta-left .down-color { color: var(--down); font-weight: 500; }
+
+/* Make inputs inside input card look unified with design */
+.input-card-shell + [data-testid="stHorizontalBlock"] [data-testid="stWidgetLabel"] p {
+  margin-bottom: 4px !important;
+}
+
+/* Direction radio styled as segmented control */
+[data-testid="stRadio"] [role="radiogroup"] {
+  gap: 4px !important;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  display: inline-grid !important;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+}
+[data-testid="stRadio"] [role="radiogroup"] label {
+  margin: 0 !important;
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: all .12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
+  background: var(--surface);
+  color: var(--ink-1);
+  box-shadow: var(--shadow-xs), 0 0 0 0.5px var(--line-2);
+}
+[data-testid="stRadio"] [role="radiogroup"] input { display: none !important; }
+
+/* Page head dynamic title */
+.page-head h1 .stock-name {
+  color: var(--ink-3);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* ====== 合理價計算機 ====== */
+.calc-section-head { margin-top: 8px; margin-bottom: 12px; }
+.calc-section-head h2 { font-size: 20px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+.calc-section-head .sub { color: var(--ink-3); font-size: 13px; margin: 0; }
+
+.calc-card {
+  background: var(--surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 16px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  margin-bottom: 24px;
+}
+.calc-divider {
+  border-top: 1px solid var(--line-1);
+  margin: 16px 0;
+}
+
+/* BS 合理價 大字深藍卡 */
+.bs-fair-card {
+  background: linear-gradient(160deg, #1d2540 0%, #2a3658 100%) !important;
+  border-radius: var(--r-md) !important;
+  padding: 16px 20px !important;
+  height: 100%;
+}
+.bs-fair-card .label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.7) !important;
+  margin-bottom: 6px !important;
+}
+.bs-fair-card .value {
+  font-family: 'Geist Mono', monospace !important;
+  font-feature-settings: 'tnum' !important;
+  font-size: 34px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+}
+.bs-fair-card .meta {
+  font-size: 11px !important;
+  color: rgba(255,255,255,0.55) !important;
+  margin-top: 10px !important;
+  font-family: 'Geist Mono', monospace !important;
+}
+
+.tick-card {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  height: 100%;
+}
+.tick-card .label {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+.tick-card .value {
+  font-family: 'Geist Mono', monospace;
+  font-feature-settings: 'tnum';
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.tick-card.buy { border-color: var(--down-line); }
+.tick-card.buy .value { color: var(--down); }
+.tick-card.sell { border-color: var(--up-line); }
+.tick-card.sell .value { color: var(--up); }
+.tick-card .meta { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+
+/* 計算機 meta line */
+.calc-meta-line {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.calc-meta-line .sep { color: var(--line-3); }
+.calc-meta-line strong {
+  color: var(--ink-1);
+  font-weight: 500;
+  font-family: 'Geist Mono', monospace;
+}
+.calc-meta-line .dev-up { color: var(--up); font-weight: 500; }
+.calc-meta-line .dev-down { color: var(--down); font-weight: 500; }
+
+/* 敏感度表 */
+.sens-section-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin: 14px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sens-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12.5px;
+  font-feature-settings: 'tnum';
+}
+.sens-table th {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-1);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  font-family: 'Geist', sans-serif;
+}
+.sens-table th:first-child { text-align: left; }
+.sens-table td {
+  padding: 7px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-1);
+  color: var(--ink-1);
+}
+.sens-table td:first-child { text-align: left; color: var(--ink-3); }
+.sens-table tr.current { background: var(--surface-2); font-weight: 600; }
+.sens-table tr.current td { color: var(--ink-1); }
+.sens-table .px-up { color: var(--up); }
+.sens-table .px-down { color: var(--down); }
 </style>
 """
 
@@ -422,31 +631,55 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """
-    <div class="page-head">
-      <h1>情境分析 — 找尋能在目標日獲利的權證</h1>
-      <p class="page-sub">輸入標的、目標價與日期，工具回傳「在這個情境下哪些權證能獲利」的排序，並提供 Black-Scholes 合理價計算機輔助下單。</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
+# --- Page head（用 placeholder 讓分析後 H1 能即時更新標的名稱）---
+_h1_placeholder = st.empty()
+
+
+def _render_h1(sym: str = "", name: str = "") -> None:
+    if sym:
+        title = f"情境分析 — {sym}"
+        if name:
+            title += f' <span class="stock-name">{name}</span>'
+    else:
+        title = "情境分析 — 找尋能在目標日獲利的權證"
+    _h1_placeholder.markdown(
+        f"""
+        <div class="page-head">
+          <h1>{title}</h1>
+          <p class="page-sub">輸入標的、目標價與日期，工具回傳「在這個情境下哪些權證能獲利」的排序，並提供 Black-Scholes 合理價計算機輔助下單。</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# 先用 session_state 已經有的值畫一次（之後分析跑完會被覆寫）
+_render_h1(
+    st.session_state.get("analyzed_symbol", ""),
+    st.session_state.get("analyzed_underlying_name", ""),
 )
 
 
-# --- 主畫面輸入區 ---
-input_cols = st.columns([1.2, 1, 0.8, 1.2, 1.3])
+# --- 主畫面輸入區（單列含 CTA，仿 React 設計）---
+st.markdown('<div class="input-card-shell"></div>', unsafe_allow_html=True)
+input_cols = st.columns([1.1, 1.0, 0.85, 1.05, 1.15, 1.0])
 with input_cols[0]:
-    symbol = st.text_input("標的股票代碼", value="2330", help="例：2330（台積電）、2454（聯發科）")
+    symbol = st.text_input("標的代碼", value="2330", help="例：2330（台積電）、2454（聯發科）")
 with input_cols[1]:
-    direction_label = st.radio("方向", ["認購", "認售"], horizontal=True)
+    direction_label = st.radio(
+        "方向",
+        ["認購", "認售"],
+        horizontal=True,
+        label_visibility="visible",
+    )
     direction = "call" if direction_label == "認購" else "put"
 with input_cols[2]:
-    top_n = st.slider("Top N", 3, 10, 5)
+    top_n = st.slider("TOP N", 3, 10, 5)
 with input_cols[3]:
     scenario_target = st.number_input(
         "目標標的價",
         min_value=1.0, value=2800.0, step=10.0,
-        help="您預期標的會到達的價格",
+        help="您預期標的會到達的價格（NT$）",
     )
 with input_cols[4]:
     today = datetime.now().date()
@@ -456,10 +689,27 @@ with input_cols[4]:
         min_value=today + timedelta(days=1),
         max_value=today + timedelta(days=365),
     )
-
 scenario_days = (scenario_target_date - today).days
-st.caption(f"距今 **{scenario_days}** 個日曆日　|　資料來源：元大權證網")
-run = st.button("🔍 開始分析", type="primary", use_container_width=True)
+with input_cols[5]:
+    # 對齊 input 高度：先放空 label 再放 button
+    st.markdown('<div style="height:26px"></div>', unsafe_allow_html=True)
+    run = st.button("🔍 開始分析", type="primary", use_container_width=True)
+
+# 下方 meta strip（紅漲綠跌、距今天數、資料來源）
+st.markdown(
+    f"""
+    <div class="input-meta-strip">
+      <div class="meta-left">
+        <span>距今 <strong style="color:var(--ink-1);font-family:'Geist Mono',monospace">{scenario_days}</strong> 日</span>
+        <span class="sep">|</span>
+        <span>資料來源：元大權證網</span>
+        <span class="sep">|</span>
+        <span>台股慣例：<span class="up-color">紅漲</span> / <span class="down-color">綠跌</span></span>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # --- helpers ---
@@ -596,6 +846,13 @@ if has_run:
             st.error(f"分析失敗：{e}")
             st.stop()
     st.session_state["result_candidates"] = result.candidates
+    st.session_state["analyzed_symbol"] = symbol
+    underlying_name_now = ""
+    if result.candidates:
+        underlying_name_now = result.candidates[0].underlying_name or ""
+        st.session_state["analyzed_underlying_name"] = underlying_name_now
+    # 分析完成立即更新 H1（不必等下次 rerun）
+    _render_h1(symbol, underlying_name_now)
 
 
 # --- 🧮 合理價計算機（永遠可用，分析前後都能算）---
@@ -691,100 +948,154 @@ def _render_calculator(candidates: list[Warrant]) -> None:
         st.session_state["calc_step"] = float(spot_tick_calc)
         st.session_state["calc_fingerprint"] = fingerprint
 
-    # ── 共用計算區（spot / IV / 利率 / 股息） ──
+    # ── 兩欄分隔：左邊輸入、右邊輸出 ──
     spot_tick = tick_size(default_spot)
-    cc = st.columns(3)
-    with cc[0]:
-        spot = st.number_input(
-            "現在標的股價", min_value=0.01,
-            value=float(round_to_tick(default_spot, "nearest")),
-            step=float(spot_tick),
-            help=f"標的 tick={spot_tick}",
-            key="calc_spot",
-        )
-    with cc[1]:
+    left_col, right_col = st.columns([1.05, 1])
+
+    with left_col:
+        cc = st.columns(2)
+        with cc[0]:
+            spot = st.number_input(
+                "現在標的價", min_value=0.01,
+                value=float(round_to_tick(default_spot, "nearest")),
+                step=float(spot_tick),
+                help=f"標的 tick={spot_tick}",
+                key="calc_spot",
+            )
+        with cc[1]:
+            spot_step = st.number_input(
+                "敏感度步長（元）",
+                min_value=float(spot_tick), value=float(spot_tick),
+                step=float(spot_tick), key="calc_step",
+            )
         iv_pct = st.slider(
-            "隱含波動度 IV %", 5.0, 200.0,
+            f"IV %（{default_iv:.1f} 為市場值）", 5.0, 200.0,
             float(default_iv), step=0.5, key="calc_iv",
         )
-    with cc[2]:
-        spot_step = st.number_input(
-            "敏感度表步長（元）",
-            min_value=float(spot_tick), value=float(spot_tick),
-            step=float(spot_tick), key="calc_step",
-        )
-
-    cc2 = st.columns(2)
-    with cc2[0]:
-        r_pct = st.number_input(
-            "無風險利率 %", 0.0, 10.0, 2.0, step=0.25, key="calc_r",
-        )
-    with cc2[1]:
-        q_pct = st.number_input(
-            "股息率 %", 0.0, 10.0, 0.0, step=0.25, key="calc_q",
-            help="台積電約 1.8%",
-        )
+        cc2 = st.columns(2)
+        with cc2[0]:
+            r_pct = st.slider(
+                "無風險利率 %", 0.0, 10.0, 2.0, step=0.25, key="calc_r",
+            )
+        with cc2[1]:
+            q_pct = st.slider(
+                "股息率 %", 0.0, 10.0, 0.0, step=0.25, key="calc_q",
+                help="台積電約 1.8%",
+            )
 
     res = fair_warrant_price(
         sel_w, spot=spot, iv_pct=iv_pct,
         r=r_pct / 100.0, q=q_pct / 100.0,
     )
-    if res is None:
-        st.warning("缺資料（履約價/IV/天數）無法計算")
-        return
 
-    tick_down, tick_up = adjacent_ticks(res.fair_price)
-    mcols = st.columns(3)
-    mcols[0].metric(
-        "BS 合理價",
-        f"{round_to_tick(res.fair_price, 'nearest'):.2f}",
-        help=f"理論值 {res.fair_price:.4f}",
-    )
-    mcols[1].metric("📥 買進可掛", f"{tick_down:.2f}")
-    mcols[2].metric("📤 賣出可掛", f"{tick_up:.2f}")
+    with right_col:
+        if res is None:
+            st.warning("缺資料（履約價/IV/天數）無法計算")
+            return
 
-    if res.market_price and res.deviation_pct is not None:
-        emoji = "🟢" if res.deviation_pct >= 0 else "🔴"
-        direction_word = "便宜" if res.deviation_pct >= 0 else "偏貴"
-        st.caption(
-            f"市價 {res.market_price} | 偏差 {emoji}{res.deviation_pct:+.1f}% "
-            f"（市價相對合理價{direction_word}）"
+        tick_down, tick_up = adjacent_ticks(res.fair_price)
+        fair_aligned = round_to_tick(res.fair_price, "nearest")
+        ftick = tick_size(res.fair_price)
+
+        # 三張輸出卡（深藍 BS + 買進綠 + 賣出紅）
+        out_cols = st.columns([1.4, 1, 1])
+        out_cols[0].markdown(
+            f"""<div class="bs-fair-card">
+              <div class="label">BS 合理價（已對齊 TICK）</div>
+              <div class="value">{fair_aligned:.2f}</div>
+              <div class="meta">tick = {ftick} · 模型：BS-Merton</div>
+            </div>""",
+            unsafe_allow_html=True,
         )
-    st.caption(
-        f"內含值 {res.intrinsic:.3f} + 時間價值 {res.time_value:.3f}"
-        f"　|　到期 {res.days_to_expiry} 天"
-    )
+        out_cols[1].markdown(
+            f"""<div class="tick-card buy">
+              <div class="label">📥 買進可掛</div>
+              <div class="value">{tick_down:.2f}</div>
+              <div class="meta">合理價 −1 tick</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        out_cols[2].markdown(
+            f"""<div class="tick-card sell">
+              <div class="label">📤 賣出可掛</div>
+              <div class="value">{tick_up:.2f}</div>
+              <div class="meta">合理價 +1 tick</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
-    steps = [
-        -3 * spot_step, -2 * spot_step, -spot_step,
-        0.0,
-        spot_step, 2 * spot_step, 3 * spot_step,
-    ]
-    sens = sensitivity_table(
-        sel_w, spot, steps,
-        iv_pct=iv_pct, r=r_pct / 100.0, q=q_pct / 100.0,
-    )
-    sens_rows = []
-    for ds, (s, p) in zip(steps, sens):
-        if p is None:
-            sens_rows.append({
-                "股價變動": f"{ds:+.1f}", "標的價": f"{s:.1f}",
-                "合理價": "-", "買進掛": "-", "賣出掛": "-",
-            })
-        else:
-            bd, bu = adjacent_ticks(p)
-            sens_rows.append({
-                "股價變動": f"{ds:+.1f}",
-                "標的價": f"{round_to_tick(s, 'nearest'):.1f}",
-                "合理價": f"{round_to_tick(p, 'nearest'):.2f}",
-                "買進掛": f"{bd:.2f}",
-                "賣出掛": f"{bu:.2f}",
-            })
-    sens_df = pd.DataFrame(sens_rows)
-    st.dataframe(sens_df, hide_index=True, use_container_width=True)
+        # Meta line（市價 / 偏差 / 內含值 / 時間價值 / 到期）
+        meta_parts = []
+        if res.market_price and res.deviation_pct is not None:
+            cls = "dev-up" if res.deviation_pct >= 0 else "dev-down"
+            dot = "🔴" if res.deviation_pct < 0 else "🟢"
+            meta_parts.append(
+                f'市價 <strong>{res.market_price}</strong>'
+                f'<span class="sep">·</span>'
+                f'偏差 {dot} <span class="{cls}">{res.deviation_pct:+.2f}%</span>'
+            )
+        meta_parts.append(
+            f'內含值 <strong>{res.intrinsic:.3f}</strong> + 時間價值 <strong>{res.time_value:.3f}</strong>'
+        )
+        meta_parts.append(f'到期 <strong>{res.days_to_expiry}</strong> 天')
+        st.markdown(
+            '<div class="calc-meta-line">'
+            + '<span class="sep">·</span>'.join(meta_parts)
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # 敏感度表（自繪 HTML 表）
+        steps_signed = [
+            (-3, -3 * spot_step), (-2, -2 * spot_step), (-1, -1 * spot_step),
+            (0, 0.0),
+            (1, 1 * spot_step), (2, 2 * spot_step), (3, 3 * spot_step),
+        ]
+        sens = sensitivity_table(
+            sel_w, spot, [ds for _, ds in steps_signed],
+            iv_pct=iv_pct, r=r_pct / 100.0, q=q_pct / 100.0,
+        )
+        rows_html = []
+        rows_html.append(
+            f'<div class="sens-section-title">敏感度表 · 步長 ±{spot_step:g}</div>'
+            f'<table class="sens-table">'
+            f'<thead><tr>'
+            f'<th>股價變動</th><th>標的價</th><th>合理價</th><th>買進掛</th><th>賣出掛</th>'
+            f'</tr></thead><tbody>'
+        )
+        for (mult, ds), (s, p) in zip(steps_signed, sens):
+            row_cls = "current" if mult == 0 else ""
+            label = f"{mult:+d}× = {ds:+.0f}" if mult != 0 else "0（現價）"
+            if p is None:
+                rows_html.append(
+                    f'<tr class="{row_cls}"><td>{label}</td>'
+                    f'<td>{s:.0f}</td><td>–</td><td>–</td><td>–</td></tr>'
+                )
+            else:
+                bd, bu = adjacent_ticks(p)
+                fair_str = f"{round_to_tick(p, 'nearest'):.2f}"
+                px_cls = "px-up" if mult > 0 else ("px-down" if mult < 0 else "")
+                rows_html.append(
+                    f'<tr class="{row_cls}"><td>{label}</td>'
+                    f'<td>{round_to_tick(s, "nearest"):.0f}</td>'
+                    f'<td class="{px_cls}">{fair_str}</td>'
+                    f'<td>{bd:.2f}</td><td>{bu:.2f}</td></tr>'
+                )
+        rows_html.append('</tbody></table>')
+        st.markdown("".join(rows_html), unsafe_allow_html=True)
 
 
-with st.expander("🧮 合理價計算機（BS）", expanded=not has_run):
+# 合理價計算機 — 移出 expander，永遠可見
+st.markdown(
+    """
+    <div class="calc-section-head">
+      <h2>合理價計算機</h2>
+      <p class="sub">Black-Scholes 推算合理價並對齊 tick；7 列敏感度表覆蓋 ±3× 步長。</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+with st.container():
     _render_calculator(list(result.candidates) if result else [])
 
 
