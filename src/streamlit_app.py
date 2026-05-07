@@ -139,132 +139,8 @@ with st.sidebar.expander("進階：硬過濾閾值（覆寫預設）"):
 run = st.sidebar.button("🔍 開始分析", type="primary", use_container_width=True)
 
 
-# --- 🧮 合理價計算機（永遠可用，獨立於分析流程）---
-st.sidebar.divider()
-with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
-    cands_in_state = st.session_state.get("result_candidates") or []
-    if cands_in_state:
-        labels = [f"{w.symbol} {w.name}" for w in cands_in_state]
-        idx = st.selectbox(
-            "選擇權證",
-            range(len(labels)),
-            format_func=lambda i: labels[i],
-            key="calc_warrant_idx",
-        )
-        sel_w = cands_in_state[idx]
-        # 反推現價當預設
-        if sel_w.strike and sel_w.moneyness_pct is not None:
-            if sel_w.direction == "call":
-                default_spot = sel_w.strike * (1 + sel_w.moneyness_pct / 100.0)
-            else:
-                default_spot = sel_w.strike * (1 - sel_w.moneyness_pct / 100.0)
-        else:
-            default_spot = float(sel_w.strike) if sel_w.strike else 100.0
-
-        # 標的的 tick 自動調整 step 與 default
-        spot_tick = tick_size(default_spot)
-        spot = st.number_input(
-            "現在標的股價",
-            min_value=0.01,
-            value=float(round_to_tick(default_spot, "nearest")),
-            step=float(spot_tick),
-            help=f"標的 tick={spot_tick}（依股價區間自動調整）",
-        )
-        default_iv = sel_w.iv_mid if sel_w.iv_mid else 30.0
-        iv_pct = st.slider(
-            "隱含波動度 IV %",
-            5.0, 200.0,
-            float(default_iv),
-            step=0.5,
-            help="預設用市場 IV；若認為盤中 IV 變動可微調",
-        )
-        spot_step = st.number_input(
-            "敏感度表股價步長（元）",
-            min_value=float(spot_tick),
-            value=float(spot_tick),
-            step=float(spot_tick),
-            help=f"預設 = 標的 tick {spot_tick}；表會列 -3×/-2×/-1×/0/+1×/+2×/+3×",
-        )
-        r_pct = st.number_input(
-            "無風險利率 %",
-            0.0, 10.0, 2.0,
-            step=0.25,
-        )
-        q_pct = st.number_input(
-            "股息率 %",
-            0.0, 10.0, 0.0,
-            step=0.25,
-            help="台積電約 1.8%；不確定就維持 0",
-        )
-
-        res = fair_warrant_price(
-            sel_w,
-            spot=spot,
-            iv_pct=iv_pct,
-            r=r_pct / 100.0,
-            q=q_pct / 100.0,
-        )
-        if res is None:
-            st.warning("缺資料（履約價/IV/天數）無法計算")
-        else:
-            # 對齊到權證的 tick — 直接給可掛單的價位
-            fair_tick = tick_size(res.fair_price)
-            tick_down, tick_up = adjacent_ticks(res.fair_price)
-            st.metric(
-                "BS 合理價（已對齊 tick）",
-                f"{round_to_tick(res.fair_price, 'nearest'):.2f}",
-                help=f"理論值 {res.fair_price:.4f}，權證 tick={fair_tick}",
-            )
-            # 可掛單兩端
-            cols = st.columns(2)
-            cols[0].caption(f"📥 **買進可掛**: {tick_down:.2f}")
-            cols[1].caption(f"📤 **賣出可掛**: {tick_up:.2f}")
-
-            if res.market_price and res.deviation_pct is not None:
-                emoji = "🟢" if res.deviation_pct >= 0 else "🔴"
-                direction_word = "便宜" if res.deviation_pct >= 0 else "偏貴"
-                st.caption(
-                    f"市價 {res.market_price} | 偏差 {emoji}{res.deviation_pct:+.1f}% "
-                    f"（市價相對合理價{direction_word}）"
-                )
-            st.caption(
-                f"內含值 {res.intrinsic:.3f} + 時間價值 {res.time_value:.3f}"
-                f"　|　到期 {res.days_to_expiry} 天"
-            )
-
-            # 敏感度表 — 標的價、權證合理價都對齊 tick
-            steps = [
-                -3 * spot_step, -2 * spot_step, -spot_step,
-                0.0,
-                spot_step, 2 * spot_step, 3 * spot_step,
-            ]
-            sens = sensitivity_table(
-                sel_w, spot, steps,
-                iv_pct=iv_pct, r=r_pct / 100.0, q=q_pct / 100.0,
-            )
-            sens_rows = []
-            for ds, (s, p) in zip(steps, sens):
-                if p is None:
-                    sens_rows.append({"股價變動": f"{ds:+.1f}", "標的價": f"{s:.1f}",
-                                       "合理價(對齊tick)": "-",
-                                       "買進掛": "-", "賣出掛": "-"})
-                else:
-                    bd, bu = adjacent_ticks(p)
-                    sens_rows.append({
-                        "股價變動": f"{ds:+.1f}",
-                        "標的價": f"{round_to_tick(s, 'nearest'):.1f}",
-                        "合理價(對齊tick)": f"{round_to_tick(p, 'nearest'):.2f}",
-                        "買進掛": f"{bd:.2f}",
-                        "賣出掛": f"{bu:.2f}",
-                    })
-            sens_df = pd.DataFrame(sens_rows)
-            st.dataframe(sens_df, hide_index=True, use_container_width=True)
-    else:
-        st.caption(
-            "👆 先按上方「🔍 開始分析」抓權證資料，"
-            "計算機會自動列出該標的的權證讓你選。"
-        )
-
+# 計算機 expander 程式碼移到主流程「分析完成、session_state 已 set」之後（見後段），
+# 因為 Streamlit 的 expander toggle 是 CSS-only 不重跑，必須在 sidebar 渲染時就拿到資料。
 
 # --- 主畫面 ---
 def warrant_to_row(w: Warrant) -> dict:
@@ -344,7 +220,14 @@ def render_basic_info(w: Warrant) -> None:
 
 
 # --- 執行 ---
-if not run:
+# 記住已經跑過分析（讓使用者點計算機 expander/scenario 等不會把頁面退回 landing）
+if run:
+    st.session_state["has_run_analysis"] = True
+    # 如果輸入參數有變，清掉舊 candidates 讓計算機等下用新一輪的資料
+    st.session_state.pop("result_candidates", None)
+has_run = st.session_state.get("has_run_analysis", False)
+
+if not has_run:
     st.markdown("""
 # 台股權證分析
 
@@ -428,6 +311,120 @@ with st.spinner(f"抓取 {symbol} 權證並分析..."):
 
 # 把 candidates 存到 session_state 供合理價計算機使用
 st.session_state["result_candidates"] = result.candidates
+
+
+# --- 🧮 合理價計算機（在 sidebar 底部，但放在分析後才 render，
+# 確保拿得到剛抓到的 candidates）---
+st.sidebar.divider()
+with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
+    cands_in_state = list(result.candidates)
+    if cands_in_state:
+        labels = [f"{w.symbol} {w.name}" for w in cands_in_state]
+        idx = st.selectbox(
+            "選擇權證",
+            range(len(labels)),
+            format_func=lambda i: labels[i],
+            key="calc_warrant_idx",
+        )
+        sel_w = cands_in_state[idx]
+        # 反推現價當預設
+        if sel_w.strike and sel_w.moneyness_pct is not None:
+            if sel_w.direction == "call":
+                default_spot = sel_w.strike * (1 + sel_w.moneyness_pct / 100.0)
+            else:
+                default_spot = sel_w.strike * (1 - sel_w.moneyness_pct / 100.0)
+        else:
+            default_spot = float(sel_w.strike) if sel_w.strike else 100.0
+
+        spot_tick = tick_size(default_spot)
+        spot = st.number_input(
+            "現在標的股價",
+            min_value=0.01,
+            value=float(round_to_tick(default_spot, "nearest")),
+            step=float(spot_tick),
+            help=f"標的 tick={spot_tick}（依股價區間自動調整）",
+        )
+        default_iv = sel_w.iv_mid if sel_w.iv_mid else 30.0
+        iv_pct = st.slider(
+            "隱含波動度 IV %",
+            5.0, 200.0,
+            float(default_iv),
+            step=0.5,
+            help="預設用市場 IV；若認為盤中 IV 變動可微調",
+        )
+        spot_step = st.number_input(
+            "敏感度表股價步長（元）",
+            min_value=float(spot_tick),
+            value=float(spot_tick),
+            step=float(spot_tick),
+            help=f"預設 = 標的 tick {spot_tick}；表會列 -3×/-2×/-1×/0/+1×/+2×/+3×",
+        )
+        r_pct = st.number_input("無風險利率 %", 0.0, 10.0, 2.0, step=0.25)
+        q_pct = st.number_input(
+            "股息率 %", 0.0, 10.0, 0.0, step=0.25,
+            help="台積電約 1.8%；不確定就維持 0",
+        )
+
+        res = fair_warrant_price(
+            sel_w, spot=spot, iv_pct=iv_pct,
+            r=r_pct / 100.0, q=q_pct / 100.0,
+        )
+        if res is None:
+            st.warning("缺資料（履約價/IV/天數）無法計算")
+        else:
+            fair_tick = tick_size(res.fair_price)
+            tick_down, tick_up = adjacent_ticks(res.fair_price)
+            st.metric(
+                "BS 合理價（已對齊 tick）",
+                f"{round_to_tick(res.fair_price, 'nearest'):.2f}",
+                help=f"理論值 {res.fair_price:.4f}，權證 tick={fair_tick}",
+            )
+            cols = st.columns(2)
+            cols[0].caption(f"📥 **買進可掛**: {tick_down:.2f}")
+            cols[1].caption(f"📤 **賣出可掛**: {tick_up:.2f}")
+
+            if res.market_price and res.deviation_pct is not None:
+                emoji = "🟢" if res.deviation_pct >= 0 else "🔴"
+                direction_word = "便宜" if res.deviation_pct >= 0 else "偏貴"
+                st.caption(
+                    f"市價 {res.market_price} | 偏差 {emoji}{res.deviation_pct:+.1f}% "
+                    f"（市價相對合理價{direction_word}）"
+                )
+            st.caption(
+                f"內含值 {res.intrinsic:.3f} + 時間價值 {res.time_value:.3f}"
+                f"　|　到期 {res.days_to_expiry} 天"
+            )
+
+            steps = [
+                -3 * spot_step, -2 * spot_step, -spot_step,
+                0.0,
+                spot_step, 2 * spot_step, 3 * spot_step,
+            ]
+            sens = sensitivity_table(
+                sel_w, spot, steps,
+                iv_pct=iv_pct, r=r_pct / 100.0, q=q_pct / 100.0,
+            )
+            sens_rows = []
+            for ds, (s, p) in zip(steps, sens):
+                if p is None:
+                    sens_rows.append({
+                        "股價變動": f"{ds:+.1f}", "標的價": f"{s:.1f}",
+                        "合理價(對齊tick)": "-", "買進掛": "-", "賣出掛": "-",
+                    })
+                else:
+                    bd, bu = adjacent_ticks(p)
+                    sens_rows.append({
+                        "股價變動": f"{ds:+.1f}",
+                        "標的價": f"{round_to_tick(s, 'nearest'):.1f}",
+                        "合理價(對齊tick)": f"{round_to_tick(p, 'nearest'):.2f}",
+                        "買進掛": f"{bd:.2f}",
+                        "賣出掛": f"{bu:.2f}",
+                    })
+            sens_df = pd.DataFrame(sens_rows)
+            st.dataframe(sens_df, hide_index=True, use_container_width=True)
+    else:
+        st.caption("該標的沒有候選權證可算")
+
 
 st.success(f"資料來源：{result.fetch_source}　|　原始候選：{result.raw_count} 檔")
 for note in result.notes:
