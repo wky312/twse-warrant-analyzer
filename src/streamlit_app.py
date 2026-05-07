@@ -10,6 +10,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 
 from twse_warrant import analyze
+from twse_warrant.analyzers.pricing import fair_warrant_price, sensitivity_table
 from twse_warrant.analyzers.scenario import ScenarioInputs, evaluate_scenario, evaluate_scenarios
 from twse_warrant.fetchers.csv_fetcher import CSVFetcher
 from twse_warrant.fetchers.mock import MockFetcher
@@ -135,6 +136,111 @@ with st.sidebar.expander("進階：硬過濾閾值（覆寫預設）"):
             )
 
 run = st.sidebar.button("🔍 開始分析", type="primary", use_container_width=True)
+
+
+# --- 🧮 合理價計算機（永遠可用，獨立於分析流程）---
+st.sidebar.divider()
+with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
+    cands_in_state = st.session_state.get("result_candidates") or []
+    if cands_in_state:
+        labels = [f"{w.symbol} {w.name}" for w in cands_in_state]
+        idx = st.selectbox(
+            "選擇權證",
+            range(len(labels)),
+            format_func=lambda i: labels[i],
+            key="calc_warrant_idx",
+        )
+        sel_w = cands_in_state[idx]
+        # 反推現價當預設
+        if sel_w.strike and sel_w.moneyness_pct is not None:
+            if sel_w.direction == "call":
+                default_spot = sel_w.strike * (1 + sel_w.moneyness_pct / 100.0)
+            else:
+                default_spot = sel_w.strike * (1 - sel_w.moneyness_pct / 100.0)
+        else:
+            default_spot = float(sel_w.strike) if sel_w.strike else 100.0
+
+        spot = st.number_input(
+            "現在標的股價",
+            min_value=0.01,
+            value=float(default_spot),
+            step=0.5,
+            help="輸入盤中即時標的價，估算對應的合理權證價",
+        )
+        default_iv = sel_w.iv_mid if sel_w.iv_mid else 30.0
+        iv_pct = st.slider(
+            "隱含波動度 IV %",
+            5.0, 200.0,
+            float(default_iv),
+            step=0.5,
+            help="預設用市場 IV；若認為盤中 IV 變動可微調",
+        )
+        spot_step = st.number_input(
+            "敏感度表股價步長（元）",
+            min_value=0.5,
+            value=5.0,
+            step=0.5,
+            help="表中每一檔差距，例 5 → 表會列 -15/-10/-5/0/+5/+10/+15",
+        )
+        r_pct = st.number_input(
+            "無風險利率 %",
+            0.0, 10.0, 2.0,
+            step=0.25,
+        )
+        q_pct = st.number_input(
+            "股息率 %",
+            0.0, 10.0, 0.0,
+            step=0.25,
+            help="台積電約 1.8%；不確定就維持 0",
+        )
+
+        res = fair_warrant_price(
+            sel_w,
+            spot=spot,
+            iv_pct=iv_pct,
+            r=r_pct / 100.0,
+            q=q_pct / 100.0,
+        )
+        if res is None:
+            st.warning("缺資料（履約價/IV/天數）無法計算")
+        else:
+            st.metric("BS 合理價", f"{res.fair_price:.2f}")
+            if res.market_price and res.deviation_pct is not None:
+                emoji = "🟢" if res.deviation_pct >= 0 else "🔴"
+                direction_word = "便宜" if res.deviation_pct >= 0 else "偏貴"
+                st.caption(
+                    f"市價 {res.market_price} | 偏差 {emoji}{res.deviation_pct:+.1f}% "
+                    f"（市價相對合理價{direction_word}）"
+                )
+            st.caption(
+                f"內含值 {res.intrinsic:.3f} + 時間價值 {res.time_value:.3f}"
+                f"　|　到期 {res.days_to_expiry} 天"
+            )
+
+            # 敏感度表
+            steps = [
+                -3 * spot_step, -2 * spot_step, -spot_step,
+                0.0,
+                spot_step, 2 * spot_step, 3 * spot_step,
+            ]
+            sens = sensitivity_table(
+                sel_w, spot, steps,
+                iv_pct=iv_pct, r=r_pct / 100.0, q=q_pct / 100.0,
+            )
+            sens_rows = []
+            for ds, (s, p) in zip(steps, sens):
+                sens_rows.append({
+                    "股價變動": f"{ds:+.1f}",
+                    "標的價": f"{s:.1f}",
+                    "BS 合理價": f"{p:.3f}" if p is not None else "-",
+                })
+            sens_df = pd.DataFrame(sens_rows)
+            st.dataframe(sens_df, hide_index=True, use_container_width=True)
+    else:
+        st.caption(
+            "👆 先按上方「🔍 開始分析」抓權證資料，"
+            "計算機會自動列出該標的的權證讓你選。"
+        )
 
 
 # --- 主畫面 ---
@@ -296,6 +402,9 @@ with st.spinner(f"抓取 {symbol} 權證並分析..."):
     except Exception as e:
         st.error(f"分析失敗：{e}")
         st.stop()
+
+# 把 candidates 存到 session_state 供合理價計算機使用
+st.session_state["result_candidates"] = result.candidates
 
 st.success(f"資料來源：{result.fetch_source}　|　原始候選：{result.raw_count} 檔")
 for note in result.notes:
