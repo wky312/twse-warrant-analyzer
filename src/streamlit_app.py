@@ -431,24 +431,30 @@ run = st.button("🔍 開始分析", type="primary", use_container_width=True)
 
 
 # --- helpers ---
-def warrant_to_row(w: Warrant) -> dict:
+def _scen_row(r) -> dict:
+    """情境表/候選表共用的 row builder（同樣欄位、含差槓比）."""
+    w = r.warrant
     return {
         "權證代碼": w.symbol,
         "權證名稱": w.name,
         "認購售": "認購" if w.direction == "call" else "認售",
         "成交價": w.last_price,
-        "漲跌": w.change,
-        "漲跌幅%": w.change_pct,
-        "成交量": w.volume,
-        "履約價": w.strike,
-        "行使比例": w.exercise_ratio,
-        "剩餘天數": w.days_to_expiry,
-        "價內外%": w.moneyness_pct,
-        "買賣價差比%": w.bid_ask_spread_pct,
-        "實質槓桿": w.leverage,
-        "成交價隱波%": w.iv_mid,
         "等效Δ": round(w.equivalent_delta, 3) if w.equivalent_delta is not None else None,
-        "流通在外比例%": w.outstanding_pct,
+        "IV%": round(w.iv_mid or 0, 1),
+        "槓桿": w.leverage,
+        "差槓比": round(w.spread_to_leverage, 3) if w.spread_to_leverage is not None else None,
+        "履約價": w.strike,
+        "行使比例": round(w.exercise_ratio, 4) if w.exercise_ratio is not None else None,
+        "價內外%": round(w.moneyness_pct, 1) if w.moneyness_pct is not None else None,
+        "天期": w.days_to_expiry,
+        "買賣價差比%": round(w.bid_ask_spread_pct or 0, 2) if w.bid_ask_spread_pct is not None else None,
+        "成交量(張)": w.volume,
+        "損益兩平": round(r.breakeven or 0, 0) if r.breakeven else None,
+        "達標權證價": round(r.expected_warrant_price or 0, 2) if r.expected_warrant_price else None,
+        "達標報酬%": round(r.expected_return_pct or 0, 1) if r.expected_return_pct is not None else None,
+        "平盤報酬%": round(r.risk_returns.get(0.0, 0) or 0, 1),
+        "跌5%報酬%": round(r.risk_returns.get(-5.0, 0) or 0, 1),
+        "跌10%報酬%": round(r.risk_returns.get(-10.0, 0) or 0, 1),
     }
 
 
@@ -474,6 +480,7 @@ def render_basic_info(w: Warrant) -> None:
         "價內外程度": f"{w.moneyness_pct:.2f}% ({'價內' if (w.moneyness_pct or 0)>0 else '價外'})" if w.moneyness_pct is not None else "-",
         "實質槓桿": w.leverage,
         "買賣價差比": f"{w.bid_ask_spread_pct:.2f}%" if w.bid_ask_spread_pct else "-",
+        "差槓比": f"{w.spread_to_leverage:.3f}" if w.spread_to_leverage is not None else "-",
     }
     with cols[0]:
         for k, v in left.items():
@@ -592,6 +599,16 @@ def _render_calculator(candidates: list[Warrant]) -> None:
         )
         default_spot = mstrike
         default_days = mdays
+
+    # ── 切換權證 / 模式時，重設下面 widgets 的 session_state ──
+    # 否則 slider/input 會卡在前一檔的 IV 或 spot
+    spot_tick_calc = tick_size(default_spot)
+    fingerprint = (mode, sel_w.symbol, sel_w.strike, round(default_iv, 2), round(default_spot, 2))
+    if st.session_state.get("calc_fingerprint") != fingerprint:
+        st.session_state["calc_spot"] = float(round_to_tick(default_spot, "nearest"))
+        st.session_state["calc_iv"] = float(default_iv)
+        st.session_state["calc_step"] = float(spot_tick_calc)
+        st.session_state["calc_fingerprint"] = fingerprint
 
     # ── 共用計算區（spot / IV / 利率 / 股息） ──
     spot_tick = tick_size(default_spot)
@@ -775,12 +792,15 @@ PINNED_COLUMNS = {
 }
 SCENARIO_COLUMN_CONFIG = {
     **PINNED_COLUMNS,
+    "認購售": st.column_config.TextColumn("認購售"),
     "等效Δ": st.column_config.NumberColumn("等效Δ", help="教科書 0~1 Delta（已除以行使比例）；認購正、認售負"),
     "IV%": st.column_config.NumberColumn("IV%", help="隱含波動度（買價/賣價隱波取中位）；越高代表權證越貴"),
-    "槓桿": st.column_config.NumberColumn("槓桿", help="實質槓桿"),
+    "槓桿": st.column_config.NumberColumn("槓桿", help="實質槓桿（FLD_LEVERAGE）"),
+    "差槓比": st.column_config.NumberColumn("差槓比", help="買賣價差比% / 實質槓桿（越低越好；用 1x 槓桿換來的價差成本）"),
     "履約價": st.column_config.NumberColumn("履約價", help="權證的履約價"),
     "價內外%": st.column_config.NumberColumn("價內外%", help="目前價內(+) 或價外(-) 的百分比"),
     "天期": st.column_config.NumberColumn("天期", help="權證剩餘日曆天數"),
+    "買賣價差比%": st.column_config.NumberColumn("買賣價差比%", help="(賣價-買價)/中價 ×100%，FLD_BUY_SELL_RATE"),
     "損益兩平": st.column_config.NumberColumn("損益兩平", help="標的需漲(call)/跌(put)到此價才回本"),
     "達標權證價": st.column_config.NumberColumn("達標權證價", help="若達目標日標的到目標價，預期權證的價格"),
     "達標報酬%": st.column_config.NumberColumn("達標報酬%", help="達標時相對現價的報酬"),
@@ -827,31 +847,29 @@ if result.candidates and spot_now is not None:
     if not scen_results:
         st.warning("沒有權證在這個情境下能獲利（過濾後無候選）。試著放寬目標、延長日期。")
     else:
-        st.success(f"✅ 通過情境過濾：{len(scen_results)} 檔　|　按達標報酬率排序")
+        SORT_KEYS = {
+            "達標報酬% (高→低)": (lambda r: r.expected_return_pct or -1e9, True),
+            "等效Δ |絕對值| (高→低)": (lambda r: abs(r.warrant.equivalent_delta or 0), True),
+            "差槓比 (低→高)": (lambda r: r.warrant.spread_to_leverage or 1e9, False),
+            "履約價 (低→高)": (lambda r: r.warrant.strike or 1e9, False),
+            "履約價 (高→低)": (lambda r: r.warrant.strike or 0, True),
+            "天期 (短→長)": (lambda r: r.warrant.days_to_expiry or 1e9, False),
+            "天期 (長→短)": (lambda r: r.warrant.days_to_expiry or 0, True),
+            "成交量 (高→低)": (lambda r: r.warrant.volume or 0, True),
+            "IV% (低→高)": (lambda r: r.warrant.iv_mid or 1e9, False),
+            "槓桿 (高→低)": (lambda r: r.warrant.leverage or 0, True),
+        }
+        sort_choice = st.selectbox(
+            "排序方式",
+            list(SORT_KEYS.keys()),
+            index=0, key="scen_sort",
+            help="也可以直接點表格欄位 header 排序",
+        )
+        key_fn, reverse = SORT_KEYS[sort_choice]
+        scen_sorted = sorted(scen_results, key=key_fn, reverse=reverse)
+        st.success(f"✅ 通過情境過濾：{len(scen_results)} 檔　|　依「{sort_choice}」排序")
 
-        scen_rows = []
-        for r in scen_results[:20]:
-            w = r.warrant
-            scen_rows.append({
-                "權證代碼": w.symbol,
-                "權證名稱": w.name,
-                "成交價": w.last_price,
-                "等效Δ": round(w.equivalent_delta, 3) if w.equivalent_delta is not None else None,
-                "IV%": round(w.iv_mid or 0, 1),
-                "槓桿": w.leverage,
-                "履約價": w.strike,
-                "行使比例": round(w.exercise_ratio, 4) if w.exercise_ratio is not None else None,
-                "價內外%": round(w.moneyness_pct, 1) if w.moneyness_pct is not None else None,
-                "天期": w.days_to_expiry,
-                "成交量(張)": w.volume,
-                "損益兩平": round(r.breakeven or 0, 0),
-                "達標權證價": round(r.expected_warrant_price or 0, 2),
-                "達標報酬%": round(r.expected_return_pct or 0, 1),
-                "平盤報酬%": round(r.risk_returns.get(0.0, 0) or 0, 1),
-                "跌5%報酬%": round(r.risk_returns.get(-5.0, 0) or 0, 1),
-                "跌10%報酬%": round(r.risk_returns.get(-10.0, 0) or 0, 1),
-            })
-        scen_df = pd.DataFrame(scen_rows)
+        scen_df = pd.DataFrame([_scen_row(r) for r in scen_sorted[:20]])
 
         def _hm_red(val):
             """正報酬紅漸層（達標報酬%）— 越高越紅."""
@@ -939,16 +957,34 @@ elif spot_now is None:
     st.warning("無法反推標的現價（缺履約價/價內外）。")
 
 
-# --- 候選清單 ---
+# --- 候選清單（同情境表欄位，但不做情境過濾）---
 st.divider()
 st.subheader(f"🗂️ 候選清單（通過硬過濾，{len(result.candidates)} 檔）")
-if result.candidates:
-    df = pd.DataFrame([warrant_to_row(w) for w in result.candidates])
-    if "成交量" in df.columns:
-        df = df.sort_values("成交量", ascending=False, na_position="last").reset_index(drop=True)
-    st.dataframe(df, use_container_width=True, hide_index=True, column_config=PINNED_COLUMNS)
-else:
+if result.candidates and spot_now is not None:
+    # 對所有 candidates 跑情境模擬（不過濾），讓表格欄位與情境表完全相同
+    cand_inputs = ScenarioInputs(
+        target_price=float(scenario_target),
+        days_to_target=int(scenario_days),
+        spot_now=spot_now,
+        risk_drops_pct=(0.0, -5.0, -10.0),
+    )
+    cand_batch = evaluate_scenarios(
+        result.candidates, cand_inputs,
+        require_alive_at_target=False,
+        require_profit_at_target=False,
+        min_volume=0, max_spread_pct=999.0,
+    )
+    cand_df = pd.DataFrame([_scen_row(r) for r in cand_batch.results])
+    if "成交量(張)" in cand_df.columns:
+        cand_df = cand_df.sort_values("成交量(張)", ascending=False, na_position="last").reset_index(drop=True)
+    st.dataframe(
+        cand_df, use_container_width=True, hide_index=True,
+        column_config=SCENARIO_COLUMN_CONFIG,
+    )
+elif not result.candidates:
     st.warning("無候選權證")
+else:
+    st.warning("無法反推現價，候選清單無法評估情境")
 
 
 # --- 個別權證基本資料 ---

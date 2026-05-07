@@ -79,6 +79,21 @@ class Warrant:
             return None
         return self.delta / self.exercise_ratio
 
+    @property
+    def spread_to_leverage(self) -> Optional[float]:
+        """差槓比 = 買賣價差比% / 實質槓桿.
+
+        越低越好：用 1% 槓桿換來的價差成本越小。
+        例：價差 2%、槓桿 5x → 0.40，比 價差 4%、槓桿 5x → 0.80 划算。
+        """
+        if (
+            self.bid_ask_spread_pct is None
+            or self.leverage is None
+            or self.leverage == 0
+        ):
+            return None
+        return self.bid_ask_spread_pct / self.leverage
+
 
 @dataclass
 class ScoredWarrant:
