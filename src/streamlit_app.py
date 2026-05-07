@@ -463,30 +463,79 @@ run = st.button("🔍 開始分析", type="primary", use_container_width=True)
 
 
 # --- helpers ---
+def _hm_red(val):
+    """正報酬紅漸層（達標報酬%）— 越高越紅."""
+    if pd.isna(val) or val <= 0:
+        return ""
+    intensity = min(abs(val) / 350.0, 0.55) + 0.06
+    color = "color: white;" if intensity > 0.45 else ""
+    return f"background-color: rgba(217, 45, 32, {intensity:.2f}); {color}"
+
+
+def _hm_green(val):
+    """負報酬綠漸層（風險情境）— 越負越綠."""
+    if pd.isna(val) or val >= 0:
+        return ""
+    intensity = min(abs(val) / 100.0, 0.40) + 0.06
+    return f"background-color: rgba(7, 148, 85, {intensity:.2f});"
+
+
+# 統一表格小數位數的 format spec（同時餵 styler.format 和 column_config）
+_TABLE_FORMAT = {
+    "成交價": "{:.2f}",
+    "等效Δ": "{:.3f}",
+    "IV%": "{:.1f}",
+    "槓桿": "{:.2f}",
+    "差槓比": "{:.3f}",
+    "履約價": "{:.2f}",
+    "行使比例": "{:.4f}",
+    "價內外%": "{:.1f}",
+    "天期": "{:.0f}",
+    "買賣價差比%": "{:.2f}",
+    "成交量(張)": "{:,.0f}",
+    "損益兩平": "{:,.0f}",
+    "達標權證價": "{:.2f}",
+    "達標報酬%": "{:+.1f}",
+    "平盤報酬%": "{:+.1f}",
+    "跌5%報酬%": "{:+.1f}",
+    "跌10%報酬%": "{:+.1f}",
+}
+
+
+def _r(v, n):
+    """安全 round；None / NaN 回傳 None."""
+    if v is None:
+        return None
+    try:
+        return round(float(v), n)
+    except (TypeError, ValueError):
+        return None
+
+
 def _scen_row(r) -> dict:
-    """情境表/候選表共用的 row builder（同樣欄位、含差槓比）."""
+    """情境表/候選表共用的 row builder（在這裡就把小數位數定下來）."""
     w = r.warrant
     return {
         "權證代碼": w.symbol,
         "權證名稱": w.name,
         "認購售": "認購" if w.direction == "call" else "認售",
-        "成交價": w.last_price,
-        "等效Δ": round(w.equivalent_delta, 3) if w.equivalent_delta is not None else None,
-        "IV%": round(w.iv_mid or 0, 1),
-        "槓桿": w.leverage,
-        "差槓比": round(w.spread_to_leverage, 3) if w.spread_to_leverage is not None else None,
-        "履約價": w.strike,
-        "行使比例": round(w.exercise_ratio, 4) if w.exercise_ratio is not None else None,
-        "價內外%": round(w.moneyness_pct, 1) if w.moneyness_pct is not None else None,
+        "成交價": _r(w.last_price, 2),
+        "等效Δ": _r(w.equivalent_delta, 3),
+        "IV%": _r(w.iv_mid, 1),
+        "槓桿": _r(w.leverage, 2),
+        "差槓比": _r(w.spread_to_leverage, 3),
+        "履約價": _r(w.strike, 2),
+        "行使比例": _r(w.exercise_ratio, 4),
+        "價內外%": _r(w.moneyness_pct, 1),
         "天期": w.days_to_expiry,
-        "買賣價差比%": round(w.bid_ask_spread_pct or 0, 2) if w.bid_ask_spread_pct is not None else None,
+        "買賣價差比%": _r(w.bid_ask_spread_pct, 2),
         "成交量(張)": w.volume,
-        "損益兩平": round(r.breakeven or 0, 0) if r.breakeven else None,
-        "達標權證價": round(r.expected_warrant_price or 0, 2) if r.expected_warrant_price else None,
-        "達標報酬%": round(r.expected_return_pct or 0, 1) if r.expected_return_pct is not None else None,
-        "平盤報酬%": round(r.risk_returns.get(0.0, 0) or 0, 1),
-        "跌5%報酬%": round(r.risk_returns.get(-5.0, 0) or 0, 1),
-        "跌10%報酬%": round(r.risk_returns.get(-10.0, 0) or 0, 1),
+        "損益兩平": _r(r.breakeven, 0),
+        "達標權證價": _r(r.expected_warrant_price, 2),
+        "達標報酬%": _r(r.expected_return_pct, 1),
+        "平盤報酬%": _r(r.risk_returns.get(0.0), 1),
+        "跌5%報酬%": _r(r.risk_returns.get(-5.0), 1),
+        "跌10%報酬%": _r(r.risk_returns.get(-10.0), 1),
     }
 
 
@@ -834,20 +883,23 @@ PINNED_COLUMNS = {
 SCENARIO_COLUMN_CONFIG = {
     **PINNED_COLUMNS,
     "認購售": st.column_config.TextColumn("認購售"),
-    "等效Δ": st.column_config.NumberColumn("等效Δ", help="教科書 0~1 Delta（已除以行使比例）；認購正、認售負"),
-    "IV%": st.column_config.NumberColumn("IV%", help="隱含波動度（買價/賣價隱波取中位）；越高代表權證越貴"),
-    "槓桿": st.column_config.NumberColumn("槓桿", help="實質槓桿（FLD_LEVERAGE）"),
-    "差槓比": st.column_config.NumberColumn("差槓比", help="買賣價差比% / 實質槓桿（越低越好；用 1x 槓桿換來的價差成本）"),
-    "履約價": st.column_config.NumberColumn("履約價", help="權證的履約價"),
-    "價內外%": st.column_config.NumberColumn("價內外%", help="目前價內(+) 或價外(-) 的百分比"),
-    "天期": st.column_config.NumberColumn("天期", help="權證剩餘日曆天數"),
-    "買賣價差比%": st.column_config.NumberColumn("買賣價差比%", help="(賣價-買價)/中價 ×100%，FLD_BUY_SELL_RATE"),
-    "損益兩平": st.column_config.NumberColumn("損益兩平", help="標的需漲(call)/跌(put)到此價才回本"),
-    "達標權證價": st.column_config.NumberColumn("達標權證價", help="若達目標日標的到目標價，預期權證的價格"),
-    "達標報酬%": st.column_config.NumberColumn("達標報酬%", help="達標時相對現價的報酬"),
-    "平盤報酬%": st.column_config.NumberColumn("平盤報酬%", help="若標的不動到目標日，預期權證價變化"),
-    "跌5%報酬%": st.column_config.NumberColumn("跌5%報酬%", help="若標的下跌 5% 到目標日的報酬"),
-    "跌10%報酬%": st.column_config.NumberColumn("跌10%報酬%", help="若標的下跌 10% 到目標日的報酬"),
+    "成交價": st.column_config.NumberColumn("成交價", format="%.2f"),
+    "等效Δ": st.column_config.NumberColumn("等效Δ", format="%.3f", help="教科書 0~1 Delta（已除以行使比例）；認購正、認售負"),
+    "IV%": st.column_config.NumberColumn("IV%", format="%.1f", help="隱含波動度（買價/賣價隱波取中位）"),
+    "槓桿": st.column_config.NumberColumn("槓桿", format="%.2f", help="實質槓桿（FLD_LEVERAGE）"),
+    "差槓比": st.column_config.NumberColumn("差槓比", format="%.3f", help="買賣價差比% / 實質槓桿（越低越好；用 1x 槓桿換來的價差成本）"),
+    "履約價": st.column_config.NumberColumn("履約價", format="%.2f", help="權證的履約價"),
+    "行使比例": st.column_config.NumberColumn("行使比例", format="%.4f"),
+    "價內外%": st.column_config.NumberColumn("價內外%", format="%.1f", help="目前價內(+) 或價外(-) 的百分比"),
+    "天期": st.column_config.NumberColumn("天期", format="%d", help="權證剩餘日曆天數"),
+    "買賣價差比%": st.column_config.NumberColumn("買賣價差比%", format="%.2f", help="(賣價-買價)/中價 ×100%，FLD_BUY_SELL_RATE"),
+    "成交量(張)": st.column_config.NumberColumn("成交量(張)", format="%d"),
+    "損益兩平": st.column_config.NumberColumn("損益兩平", format="%.0f", help="標的需漲(call)/跌(put)到此價才回本"),
+    "達標權證價": st.column_config.NumberColumn("達標權證價", format="%.2f", help="若達目標日標的到目標價，預期權證的價格"),
+    "達標報酬%": st.column_config.NumberColumn("達標報酬%", format="%+.1f", help="達標時相對現價的報酬"),
+    "平盤報酬%": st.column_config.NumberColumn("平盤報酬%", format="%+.1f", help="若標的不動到目標日，預期權證價變化"),
+    "跌5%報酬%": st.column_config.NumberColumn("跌5%報酬%", format="%+.1f", help="若標的下跌 5% 到目標日的報酬"),
+    "跌10%報酬%": st.column_config.NumberColumn("跌10%報酬%", format="%+.1f", help="若標的下跌 10% 到目標日的報酬"),
 }
 
 
@@ -911,24 +963,9 @@ if result.candidates and spot_now is not None:
         st.success(f"✅ 通過情境過濾：{len(scen_results)} 檔　|　依「{sort_choice}」排序")
 
         scen_df = pd.DataFrame([_scen_row(r) for r in scen_sorted[:20]])
-
-        def _hm_red(val):
-            """正報酬紅漸層（達標報酬%）— 越高越紅."""
-            if pd.isna(val) or val <= 0:
-                return ""
-            intensity = min(abs(val) / 350.0, 0.55) + 0.06
-            color = "color: white;" if intensity > 0.45 else ""
-            return f"background-color: rgba(217, 45, 32, {intensity:.2f}); {color}"
-
-        def _hm_green(val):
-            """負報酬綠漸層（風險情境）— 越負越綠."""
-            if pd.isna(val) or val >= 0:
-                return ""
-            intensity = min(abs(val) / 100.0, 0.40) + 0.06
-            return f"background-color: rgba(7, 148, 85, {intensity:.2f});"
-
         styler = (
             scen_df.style
+            .format(_TABLE_FORMAT, na_rep="–")
             .map(_hm_red, subset=["達標報酬%"])
             .map(_hm_green, subset=["平盤報酬%", "跌5%報酬%", "跌10%報酬%"])
         )
@@ -1018,8 +1055,14 @@ if result.candidates and spot_now is not None:
     cand_df = pd.DataFrame([_scen_row(r) for r in cand_batch.results])
     if "成交量(張)" in cand_df.columns:
         cand_df = cand_df.sort_values("成交量(張)", ascending=False, na_position="last").reset_index(drop=True)
+    cand_styler = (
+        cand_df.style
+        .format(_TABLE_FORMAT, na_rep="–")
+        .map(_hm_red, subset=["達標報酬%"])
+        .map(_hm_green, subset=["平盤報酬%", "跌5%報酬%", "跌10%報酬%"])
+    )
     st.dataframe(
-        cand_df, use_container_width=True, hide_index=True,
+        cand_styler, use_container_width=True, hide_index=True,
         column_config=SCENARIO_COLUMN_CONFIG,
     )
 elif not result.candidates:
