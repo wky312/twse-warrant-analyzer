@@ -13,6 +13,7 @@ from twse_warrant import analyze
 from twse_warrant.analyzers.pricing import fair_warrant_price, sensitivity_table
 from twse_warrant.analyzers.scenario import ScenarioInputs, evaluate_scenario, evaluate_scenarios
 from twse_warrant.fetchers.csv_fetcher import CSVFetcher
+from twse_warrant.utils.tick import adjacent_ticks, round_to_tick, tick_size
 from twse_warrant.fetchers.mock import MockFetcher
 from twse_warrant.fetchers.twse import TWSEFetcher
 from twse_warrant.fetchers.yuanta import YuantaFetcher
@@ -160,12 +161,14 @@ with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
         else:
             default_spot = float(sel_w.strike) if sel_w.strike else 100.0
 
+        # 標的的 tick 自動調整 step 與 default
+        spot_tick = tick_size(default_spot)
         spot = st.number_input(
             "現在標的股價",
             min_value=0.01,
-            value=float(default_spot),
-            step=0.5,
-            help="輸入盤中即時標的價，估算對應的合理權證價",
+            value=float(round_to_tick(default_spot, "nearest")),
+            step=float(spot_tick),
+            help=f"標的 tick={spot_tick}（依股價區間自動調整）",
         )
         default_iv = sel_w.iv_mid if sel_w.iv_mid else 30.0
         iv_pct = st.slider(
@@ -177,10 +180,10 @@ with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
         )
         spot_step = st.number_input(
             "敏感度表股價步長（元）",
-            min_value=0.5,
-            value=5.0,
-            step=0.5,
-            help="表中每一檔差距，例 5 → 表會列 -15/-10/-5/0/+5/+10/+15",
+            min_value=float(spot_tick),
+            value=float(spot_tick),
+            step=float(spot_tick),
+            help=f"預設 = 標的 tick {spot_tick}；表會列 -3×/-2×/-1×/0/+1×/+2×/+3×",
         )
         r_pct = st.number_input(
             "無風險利率 %",
@@ -204,7 +207,19 @@ with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
         if res is None:
             st.warning("缺資料（履約價/IV/天數）無法計算")
         else:
-            st.metric("BS 合理價", f"{res.fair_price:.2f}")
+            # 對齊到權證的 tick — 直接給可掛單的價位
+            fair_tick = tick_size(res.fair_price)
+            tick_down, tick_up = adjacent_ticks(res.fair_price)
+            st.metric(
+                "BS 合理價（已對齊 tick）",
+                f"{round_to_tick(res.fair_price, 'nearest'):.2f}",
+                help=f"理論值 {res.fair_price:.4f}，權證 tick={fair_tick}",
+            )
+            # 可掛單兩端
+            cols = st.columns(2)
+            cols[0].caption(f"📥 **買進可掛**: {tick_down:.2f}")
+            cols[1].caption(f"📤 **賣出可掛**: {tick_up:.2f}")
+
             if res.market_price and res.deviation_pct is not None:
                 emoji = "🟢" if res.deviation_pct >= 0 else "🔴"
                 direction_word = "便宜" if res.deviation_pct >= 0 else "偏貴"
@@ -217,7 +232,7 @@ with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
                 f"　|　到期 {res.days_to_expiry} 天"
             )
 
-            # 敏感度表
+            # 敏感度表 — 標的價、權證合理價都對齊 tick
             steps = [
                 -3 * spot_step, -2 * spot_step, -spot_step,
                 0.0,
@@ -229,11 +244,19 @@ with st.sidebar.expander("🧮 合理價計算機（BS）", expanded=False):
             )
             sens_rows = []
             for ds, (s, p) in zip(steps, sens):
-                sens_rows.append({
-                    "股價變動": f"{ds:+.1f}",
-                    "標的價": f"{s:.1f}",
-                    "BS 合理價": f"{p:.3f}" if p is not None else "-",
-                })
+                if p is None:
+                    sens_rows.append({"股價變動": f"{ds:+.1f}", "標的價": f"{s:.1f}",
+                                       "合理價(對齊tick)": "-",
+                                       "買進掛": "-", "賣出掛": "-"})
+                else:
+                    bd, bu = adjacent_ticks(p)
+                    sens_rows.append({
+                        "股價變動": f"{ds:+.1f}",
+                        "標的價": f"{round_to_tick(s, 'nearest'):.1f}",
+                        "合理價(對齊tick)": f"{round_to_tick(p, 'nearest'):.2f}",
+                        "買進掛": f"{bd:.2f}",
+                        "賣出掛": f"{bu:.2f}",
+                    })
             sens_df = pd.DataFrame(sens_rows)
             st.dataframe(sens_df, hide_index=True, use_container_width=True)
     else:
