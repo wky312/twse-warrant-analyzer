@@ -1,0 +1,13 @@
+# 強制使用 light theme（不跟隨 OS 設定）
+# 對應 web/styles.css 的 design tokens
+[theme]
+base = "light"
+backgroundColor = "#fafaf9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0a0a0a"
+linkColor = "#1d2540"
+primaryColor = "#ff5630"
+font = "sans-serif"
+
+[server]
+headless = true
