@@ -16,7 +16,389 @@ from twse_warrant.utils.tick import adjacent_ticks, round_to_tick, tick_size
 
 
 st.set_page_config(page_title="台股權證分析", layout="wide", page_icon="📈")
-st.title("📈 台股權證分析")
+
+
+# ============================================================
+# Design tokens — Modern Financial SaaS (Geist + 台股紅漲綠跌)
+# 來源：web/styles.css（Claude Design hand-off）
+# ============================================================
+_DESIGN_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f6f6f4;
+  --ink-1: #0a0a0a;
+  --ink-2: #404040;
+  --ink-3: #737373;
+  --ink-4: #a3a3a3;
+  --line-1: #ececea;
+  --line-2: #e3e2df;
+  --brand: #1d2540;
+  --accent: #ff5630;
+  --accent-hover: #ee4a23;
+  --up: #d92d20;
+  --up-bg: #fef2f0;
+  --up-bg-2: #fde2dd;
+  --up-line: #f8b7ac;
+  --down: #079455;
+  --down-bg: #effaf3;
+  --down-bg-2: #d1f4dd;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+/* App shell */
+html, body, .stApp {
+  background: var(--bg) !important;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Noto Sans TC', sans-serif !important;
+  color: var(--ink-1);
+}
+[data-testid="stHeader"] {
+  background: rgba(255,255,255,0.85) !important;
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--line-1);
+}
+[data-testid="stMainBlockContainer"] {
+  max-width: 1440px;
+  padding-top: 24px !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5 {
+  font-family: 'Geist', sans-serif !important;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
+}
+h1 { font-size: 26px !important; font-weight: 600 !important; letter-spacing: -0.02em !important; }
+h2 { font-size: 20px !important; font-weight: 600 !important; }
+h3 { font-size: 17px !important; font-weight: 600 !important; }
+
+/* Inputs */
+input, textarea,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInputField"] {
+  font-family: 'Geist Mono', monospace !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--ink-1) !important;
+}
+[data-testid="stTextInput"] > div > div,
+[data-testid="stNumberInputContainer"],
+[data-testid="stDateInput"] > div > div,
+[data-testid="stSelectbox"] > div > div {
+  border: 1px solid var(--line-2) !important;
+  border-radius: var(--r-md) !important;
+  background: var(--surface) !important;
+}
+
+/* Widget label uppercase tracking */
+[data-testid="stWidgetLabel"] p {
+  font-size: 11.5px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3) !important;
+  font-weight: 500 !important;
+}
+
+/* Primary button (CTA) */
+.stButton button[kind="primary"] {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  border-radius: var(--r-md) !important;
+  height: 42px !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+.stButton button[kind="primary"]:hover {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+}
+
+/* Default Streamlit metric (used in calculator output) */
+[data-testid="stMetric"] {
+  background: var(--surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: 14px 18px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+}
+[data-testid="stMetricLabel"] p {
+  color: var(--ink-3) !important;
+  font-size: 11.5px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+[data-testid="stMetricValue"] {
+  font-family: 'Geist Mono', monospace !important;
+  font-feature-settings: 'tnum';
+  font-size: 26px !important;
+  font-weight: 600 !important;
+  color: var(--ink-1) !important;
+  letter-spacing: -0.02em;
+}
+
+/* Alert pills */
+[data-testid="stAlertContainer"] {
+  border-radius: var(--r-md) !important;
+  font-size: 13px !important;
+  padding: 10px 14px !important;
+  border: 1px solid var(--line-1);
+}
+[data-testid="stAlertContentSuccess"] {
+  background: var(--down-bg) !important;
+  color: var(--down) !important;
+  border-color: var(--down-line);
+}
+
+/* Expander */
+[data-testid="stExpander"] {
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-1) !important;
+  background: var(--surface);
+}
+[data-testid="stExpander"] summary {
+  font-weight: 500;
+  color: var(--ink-1);
+}
+
+/* DataFrame */
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+/* Custom topbar */
+.custom-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--line-1);
+  margin-bottom: 24px;
+}
+.custom-topbar .brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Geist', sans-serif;
+}
+.custom-topbar .brand-logo {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #1d2540 0%, #2a3658 100%);
+  display: grid; place-items: center;
+  color: white; font-size: 14px;
+}
+.custom-topbar .brand-name {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+}
+.custom-topbar .brand-name .sub {
+  color: var(--ink-3); font-weight: 400; margin-left: 8px;
+  font-size: 13px; letter-spacing: 0;
+}
+.custom-topbar .topbar-right {
+  display: flex; align-items: center; gap: 16px;
+  color: var(--ink-3); font-size: 12.5px;
+}
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--down-bg); color: var(--down);
+  font-weight: 500; font-size: 12px;
+}
+.status-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--down);
+  box-shadow: 0 0 0 3px rgba(7,148,85,0.15);
+}
+
+/* Custom KPI cards (replaces st.metric for KPI row) */
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: 16px 18px 14px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+}
+.kpi-card.accent {
+  background: linear-gradient(180deg, #fef6f3 0%, #ffffff 60%);
+  border-color: #ffd9ce;
+}
+.kpi-card .kpi-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.kpi-card .kpi-value {
+  font-family: 'Geist Mono', monospace;
+  font-feature-settings: 'tnum';
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--ink-1);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.kpi-card.accent .kpi-value { color: var(--up); }
+.kpi-card .kpi-meta {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+
+/* Top 3 podium cards */
+.podium-card {
+  background: var(--surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+}
+.podium-card.rank-1 {
+  background: linear-gradient(180deg, #fff8f5 0%, #ffffff 50%);
+  border-color: var(--up-line);
+}
+.podium-ribbon {
+  height: 4px; position: absolute; top: 0; left: 0; right: 0;
+}
+.podium-ribbon.rank-1 { background: linear-gradient(90deg, #d92d20, #f8b7ac); }
+.podium-ribbon.rank-2 { background: linear-gradient(90deg, #737373, #d4d3cf); }
+.podium-ribbon.rank-3 { background: linear-gradient(90deg, #b54708, #f8d3a3); }
+.podium-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.podium-rank {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11.5px; font-weight: 600;
+  color: white;
+}
+.podium-rank.rank-1 { background: var(--up); }
+.podium-rank.rank-2 { background: #737373; }
+.podium-rank.rank-3 { background: #b54708; }
+.podium-rank-label {
+  font-size: 11px; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.podium-ret {
+  font-family: 'Geist Mono', monospace;
+  font-feature-settings: 'tnum';
+  color: var(--up);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+.podium-card.rank-1 .podium-ret { font-size: 36px; }
+.podium-card.rank-2 .podium-ret,
+.podium-card.rank-3 .podium-ret { font-size: 28px; }
+.podium-code {
+  font-family: 'Geist Mono', monospace;
+  font-size: 16px; font-weight: 600;
+  color: var(--ink-1);
+}
+.podium-name {
+  font-size: 13px; color: var(--ink-2); margin-bottom: 12px;
+}
+.podium-kvs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-1);
+  border-bottom: 1px solid var(--line-1);
+  margin-bottom: 10px;
+}
+.podium-kvs .kv {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px;
+}
+.podium-kvs .kv .k { color: var(--ink-3); }
+.podium-kvs .kv .v {
+  font-family: 'Geist Mono', monospace;
+  font-feature-settings: 'tnum';
+  color: var(--ink-1); font-weight: 500;
+}
+.podium-warns {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+}
+.podium-warns .w {
+  background: var(--down-bg);
+  border: 1px solid var(--down-line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.podium-warns .w .label {
+  display: block;
+  font-size: 10.5px; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.podium-warns .w .val {
+  font-family: 'Geist Mono', monospace;
+  font-feature-settings: 'tnum';
+  font-size: 13px; font-weight: 600;
+  color: var(--down);
+}
+
+/* Page heading */
+.page-head {
+  padding: 4px 0 16px;
+}
+.page-head h1 {
+  font-size: 26px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  margin: 0 0 4px !important;
+}
+.page-head .page-sub {
+  color: var(--ink-3);
+  font-size: 13.5px;
+  margin: 0;
+}
+</style>
+"""
+
+st.markdown(_DESIGN_CSS, unsafe_allow_html=True)
+
+# Custom top bar
+st.markdown(
+    """
+    <div class="custom-topbar">
+      <div class="brand">
+        <div class="brand-logo">📈</div>
+        <span class="brand-name">台股權證分析<span class="sub">Warrant Analyzer</span></span>
+      </div>
+      <div class="topbar-right">
+        <span class="status-pill"><span class="dot"></span>市場開盤</span>
+        <span>資料來源 yuanta</span>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="page-head">
+      <h1>情境分析 — 找尋能在目標日獲利的權證</h1>
+      <p class="page-sub">輸入標的、目標價與日期，工具回傳「在這個情境下哪些權證能獲利」的排序，並提供 Black-Scholes 合理價計算機輔助下單。</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # --- 主畫面輸入區 ---
@@ -330,13 +712,52 @@ for w in result.candidates:
         break
 
 
-# --- 頂部 metric 列 ---
+# --- 頂部 KPI 卡（design tokens）---
+def _kpi_card(label: str, value: str, meta: str = "", accent: bool = False) -> str:
+    cls = "kpi-card accent" if accent else "kpi-card"
+    return (
+        f'<div class="{cls}">'
+        f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value">{value}</div>'
+        f'<div class="kpi-meta">{meta}</div>'
+        f'</div>'
+    )
+
+
 if spot_now is not None:
-    mc1, mc2, mc3 = st.columns(3)
-    mc1.metric("反推標的現價", f"{spot_now:.1f}")
-    mc2.metric(f"目標價 ({scenario_days} 天後)", f"{scenario_target:.0f}")
     pct = (float(scenario_target) / spot_now - 1) * 100.0
-    mc3.metric("預期漲跌幅", f"{pct:+.1f}%")
+    target_diff = float(scenario_target) - spot_now
+    kpi_cols = st.columns(4)
+    kpi_cols[0].markdown(
+        _kpi_card("反推標的現價", f"{spot_now:.1f}", "由候選反推"),
+        unsafe_allow_html=True,
+    )
+    kpi_cols[1].markdown(
+        _kpi_card(
+            "目標價",
+            f"NT$ {scenario_target:,.0f}",
+            f"{scenario_target_date.strftime('%Y-%m-%d')} 達成",
+        ),
+        unsafe_allow_html=True,
+    )
+    kpi_cols[2].markdown(
+        _kpi_card(
+            "預期漲跌幅",
+            f"{pct:+.1f}%",
+            f"距現價 {target_diff:+.0f} 點　|　{scenario_days} 天",
+            accent=True,
+        ),
+        unsafe_allow_html=True,
+    )
+    kpi_cols[3].markdown(
+        _kpi_card(
+            "候選池",
+            f"{result.raw_count:,}",
+            f"硬過濾後 {len(result.candidates)} 檔",
+        ),
+        unsafe_allow_html=True,
+    )
+
     if direction == "call" and pct < 0:
         st.warning(
             f"⚠️ 目標價 {scenario_target:.0f} 低於反推現價 {spot_now:.1f}（{pct:+.1f}%）— 您是否想改選「認售」？"
@@ -431,8 +852,29 @@ if result.candidates and spot_now is not None:
                 "跌10%報酬%": round(r.risk_returns.get(-10.0, 0) or 0, 1),
             })
         scen_df = pd.DataFrame(scen_rows)
+
+        def _hm_red(val):
+            """正報酬紅漸層（達標報酬%）— 越高越紅."""
+            if pd.isna(val) or val <= 0:
+                return ""
+            intensity = min(abs(val) / 350.0, 0.55) + 0.06
+            color = "color: white;" if intensity > 0.45 else ""
+            return f"background-color: rgba(217, 45, 32, {intensity:.2f}); {color}"
+
+        def _hm_green(val):
+            """負報酬綠漸層（風險情境）— 越負越綠."""
+            if pd.isna(val) or val >= 0:
+                return ""
+            intensity = min(abs(val) / 100.0, 0.40) + 0.06
+            return f"background-color: rgba(7, 148, 85, {intensity:.2f});"
+
+        styler = (
+            scen_df.style
+            .map(_hm_red, subset=["達標報酬%"])
+            .map(_hm_green, subset=["平盤報酬%", "跌5%報酬%", "跌10%報酬%"])
+        )
         st.dataframe(
-            scen_df, use_container_width=True, hide_index=True,
+            styler, use_container_width=True, hide_index=True,
             column_config=SCENARIO_COLUMN_CONFIG,
         )
 
@@ -449,28 +891,50 @@ if result.candidates and spot_now is not None:
                 "⚠️ Top 3 三檔在所有風險情境下報酬相同：標的在所有下跌情境皆深度價外，"
                 "模型目前只反映時間價值衰減（Delta-aware OTM 模型留待後續輪次補強）"
             )
-        for i, r in enumerate(top3, 1):
+
+        def _podium_card(rank: int, r) -> str:
             w = r.warrant
-            cols = st.columns([1, 2, 2])
-            with cols[0]:
-                st.metric(f"#{i} 達標報酬", f"{r.expected_return_pct:+.1f}%")
-                st.write(f"**{w.symbol}**")
-                st.write(w.name)
-            with cols[1]:
-                st.write(f"履約 **{w.strike:.0f}** | 天期 **{w.days_to_expiry}** 天")
-                st.write(f"現價 {w.last_price} → 預期 **{r.expected_warrant_price:.2f}**")
-                st.write(f"損益兩平 **{r.breakeven:.0f}**　(目標距 BE: {scenario_target - r.breakeven:+.0f})")
             risk_flat = round(r.risk_returns.get(0.0, 0) or 0, 1)
             risk_5 = round(r.risk_returns.get(-5.0, 0) or 0, 1)
             risk_10 = round(r.risk_returns.get(-10.0, 0) or 0, 1)
-            with cols[2]:
-                st.write(f"⚠️ 平盤不動：**{risk_flat:+.1f}%**")
-                st.write(f"⚠️ 跌 5%：**{risk_5:+.1f}%**")
-                st.write(f"⚠️ 跌 10%：**{risk_10:+.1f}%**")
+            be_diff = scenario_target - (r.breakeven or 0)
+            eq_d = w.equivalent_delta or 0
+            iv = w.iv_mid or 0
+            lev = w.leverage or 0
+            ratio = w.exercise_ratio or 0
+            return f"""
+            <div class="podium-card rank-{rank}">
+              <div class="podium-ribbon rank-{rank}"></div>
+              <div class="podium-head">
+                <span class="podium-rank rank-{rank}">{rank}</span>
+                <span class="podium-rank-label">達標報酬排序</span>
+              </div>
+              <div class="podium-ret">{r.expected_return_pct:+.1f}%</div>
+              <div class="podium-code">{w.symbol}</div>
+              <div class="podium-name">{w.name}</div>
+              <div class="podium-kvs">
+                <div class="kv"><span class="k">履約 / 天期</span><span class="v">{w.strike:.0f} / {w.days_to_expiry}d</span></div>
+                <div class="kv"><span class="k">行使比例</span><span class="v">{ratio:.4f}</span></div>
+                <div class="kv"><span class="k">現價 → 預期</span><span class="v">{w.last_price} → {r.expected_warrant_price:.2f}</span></div>
+                <div class="kv"><span class="k">損益兩平</span><span class="v">{r.breakeven:.0f} ({be_diff:+.0f})</span></div>
+                <div class="kv"><span class="k">等效Δ · IV</span><span class="v">{eq_d:.2f} · {iv:.0f}%</span></div>
+                <div class="kv"><span class="k">槓桿</span><span class="v">{lev:.1f}x</span></div>
+              </div>
+              <div class="podium-warns">
+                <div class="w"><span class="label">平盤</span><span class="val">{risk_flat:+.1f}%</span></div>
+                <div class="w"><span class="label">跌5%</span><span class="val">{risk_5:+.1f}%</span></div>
+                <div class="w"><span class="label">跌10%</span><span class="val">{risk_10:+.1f}%</span></div>
+              </div>
+            </div>
+            """
+
+        podium_cols = st.columns([1.35, 1, 1])
+        for i, r in enumerate(top3, 1):
+            podium_cols[i - 1].markdown(_podium_card(i, r), unsafe_allow_html=True)
+
+        for i, r in enumerate(top3, 1):
             if r.notes:
-                for n in r.notes:
-                    st.caption(f"・{n}")
-            st.divider()
+                st.caption(f"#{i} {r.warrant.symbol}：" + "　|　".join(r.notes))
 elif spot_now is None:
     st.warning("無法反推標的現價（缺履約價/價內外）。")
 

@@ -1,0 +1,86 @@
+Deploy
+📈 台股權證分析
+
+標的股票代碼
+
+方向
+
+認購
+
+認售
+
+Top N
+
+5
+
+3
+
+10
+
+目標標的價
+
+目標達成日期
+
+Press the down arrow key to interact with the calendar and select a date. Press the escape button to close the calendar.
+
+Selected date is 2026/07/06. Select the second date.
+
+距今 60 個日曆日　|　資料來源：元大權證網
+
+🔍 開始分析
+
+keyboard_arrow_down
+
+🧮 合理價計算機（BS）
+
+📝 手動輸入模式（按上方「🔍 開始分析」可改用候選清單）
+
+方向
+
+認購
+
+認售
+
+履約價
+
+行使比例
+
+剩餘天數
+
+權證市價（可選，算偏差用）
+
+IV %（預設值）
+
+現在標的股價
+
+隱含波動度 IV %
+
+40.00
+
+5.00
+
+200.00
+
+敏感度表步長（元）
+
+無風險利率 %
+
+股息率 %
+
+BS 合理價
+
+0.76
+
+📥 買進可掛
+
+0.76
+
+📤 賣出可掛
+
+0.77
+
+內含值 0.000 + 時間價值 0.761　|　到期 60 天
+
+👆
+
+想看完整分析？輸入標的、方向、目標價/日期 → 點上方「🔍 開始分析」
