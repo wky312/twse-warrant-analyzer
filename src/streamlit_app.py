@@ -368,6 +368,38 @@ input, textarea,
   font-size: 13.5px;
   margin: 0;
 }
+
+/* Compact meta row (取代大 alert) */
+.meta-row {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  margin: 12px 0 8px;
+}
+.meta-row strong {
+  color: var(--ink-1);
+  font-weight: 500;
+  font-family: 'Geist Mono', monospace;
+}
+
+/* Tighten Streamlit's default vertical spacing */
+[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] {
+  margin-bottom: 0 !important;
+}
+[data-testid="stVerticalBlock"] {
+  gap: 0.5rem !important;
+}
+hr { margin: 16px 0 !important; }
+[data-testid="stMarkdownContainer"] hr { margin: 8px 0 !important; }
+
+/* Subtle alerts (info/success/warning are smaller) */
+[data-testid="stAlertContainer"] {
+  padding: 8px 12px !important;
+  font-size: 12.5px !important;
+}
 </style>
 """
 
@@ -713,9 +745,9 @@ if not has_run or result is None:
     st.stop()
 
 
-st.success(f"資料來源：{result.fetch_source}　|　原始候選：{result.raw_count} 檔")
-for note in result.notes:
-    st.info(note)
+_notes_inline = ""
+if result.notes:
+    _notes_inline = "　|　" + "、".join(result.notes)
 
 
 # --- 反推現價 ---
@@ -772,6 +804,15 @@ if spot_now is not None:
             f"{result.raw_count:,}",
             f"硬過濾後 {len(result.candidates)} 檔",
         ),
+        unsafe_allow_html=True,
+    )
+
+    # 小字 meta 行：資料來源 + filter notes（取代原本三個大綠/藍 alert）
+    st.markdown(
+        f'<div class="meta-row">資料來源 <strong>{result.fetch_source}</strong>　|　'
+        f'原始候選 <strong>{result.raw_count:,}</strong> 檔　|　'
+        f'硬過濾後 <strong>{len(result.candidates)}</strong> 檔'
+        f'{_notes_inline}</div>',
         unsafe_allow_html=True,
     )
 
